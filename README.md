@@ -3,6 +3,15 @@ Pipeline to process anatomical data, including microstructure metrics from DWI a
 
 ## How to run the pipeline
 
+Get `s3_access_key` and `s3_secret_key` 👉 contact Basile.
+
+Get the data:
+```bash
+datalad install -r git@github.com:courtois-neuromod/anat.git
+cd anat
+datalad get .
+```
+
 Docker installation (for now)
 ```bash
 docker pull qmrlab/minimal:v2.3.1
