@@ -4,6 +4,11 @@ Pipeline to process anatomical data, including microstructure metrics from DWI a
 ## How to run the pipeline
 
 Get `s3_access_key` and `s3_secret_key` 👉 contact Basile.
+Then, set them:
+```bash
+export AWS_ACCESS_KEY_ID=<s3_access_key>
+export AWS_SECRET_ACCESS_KEY=<s3_secret_key>
+```
 
 Get the data:
 ```bash
