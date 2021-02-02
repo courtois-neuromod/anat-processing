@@ -16,6 +16,6 @@ TODO
 
 Run pipeline
 ```bash
-nextflow run mtsatflow_BIDS.nf [OPTIONAL_ARGUMENTS] (--root)
+nextflow run neuromod-process-anat.nf [OPTIONAL_ARGUMENTS] (--root)
 ```
 
