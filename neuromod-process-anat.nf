@@ -115,7 +115,7 @@ if(params.bids){
     /* ==== BIDS: MTSat inputs ==== */  
     /* Here, alphabetical indexes matter. Therefore, MToff -> MTon -> T1w */
     in_data = Channel
-        .fromFilePairs("$bids/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 2, size: 3, flat: true)
+        .fromFilePairs("$bids/**/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
     (pdw, mtw, t1w) = in_data
         .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
                                             tuple(sid, MTon),
@@ -123,7 +123,7 @@ if(params.bids){
         .separate(3)
 
     in_data = Channel
-        .fromFilePairs("$bids/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 2, size: 3, flat: true)
+        .fromFilePairs("$bids/**/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
     (pdwj, mtwj, t1wj) = in_data
         .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
                                             tuple(sid, MTon),
@@ -133,10 +133,11 @@ if(params.bids){
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
     b1_data = Channel
-           .fromFilePairs("$bids/**/fmap/sub-*_{B1plusmap}.nii.gz", maxDepth:2, size:1, flat:true)   
-    (b1raw) = b1_data       
-           .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
-           .separate(1)  
+           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
+           .set {b1raw}
+    //(b1raw) = b1_data       
+     //      .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
+     //      .separate(1)
 }   
 else{
     error "ERROR: Argument (--bids) must be passed. See USAGE."
