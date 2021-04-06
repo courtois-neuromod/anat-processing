@@ -133,10 +133,11 @@ if(params.bids){
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
     b1_data = Channel
-           .fromFilePairs("$bids/**/**/fmap/sub-*acq-flipangle_dir-AP_{B1plusmap}.nii.gz", maxDepth:3, size:1, flat:true)   
-    (b1raw) = b1_data       
-           .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
-           .separate(1)  
+           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
+           .set {b1raw}
+    //(b1raw) = b1_data       
+     //      .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
+     //      .separate(1)
 }   
 else{
     error "ERROR: Argument (--bids) must be passed. See USAGE."
