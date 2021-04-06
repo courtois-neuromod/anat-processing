@@ -48,6 +48,6 @@ docker pull qmrlab/antsfsl:latest
 ### Run pipeline
 
 ```bash
-nextflow run neuromod-process-anat.nf --root /path/to/courtois-neuromod/directory
+nextflow run neuromod-process-anat.nf --bids /path/to/courtois-neuromod/directory
 ```
 

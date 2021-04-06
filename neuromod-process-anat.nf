@@ -26,7 +26,7 @@ Users: Please see USAGE for further details
  */
 
 /*Set defaults for parameters determining logic flow to false*/
-params.root = false 
+params.bids = false 
 params.help = false
 
 /* Call to the mt_sat_wrapper.m will be invoked by params.runcmd.
@@ -108,14 +108,14 @@ Note:
     issue, these (optional) maps are assumed to be located at the fmap
     folder with _B1plusmap suffix.   
 */
-if(params.root){
-    log.info "Input: $params.root"
-    root = file(params.root)
+if(params.bids){
+    log.info "Input: $params.bids"
+    bids = file(params.bids)
     
     /* ==== BIDS: MTSat inputs ==== */  
     /* Here, alphabetical indexes matter. Therefore, MToff -> MTon -> T1w */
     in_data = Channel
-        .fromFilePairs("$root/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 2, size: 3, flat: true)
+        .fromFilePairs("$bids/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 2, size: 3, flat: true)
     (pdw, mtw, t1w) = in_data
         .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
                                             tuple(sid, MTon),
@@ -123,7 +123,7 @@ if(params.root){
         .separate(3)
 
     in_data = Channel
-        .fromFilePairs("$root/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 2, size: 3, flat: true)
+        .fromFilePairs("$bids/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 2, size: 3, flat: true)
     (pdwj, mtwj, t1wj) = in_data
         .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
                                             tuple(sid, MTon),
@@ -133,13 +133,13 @@ if(params.root){
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
     b1_data = Channel
-           .fromFilePairs("$root/**/fmap/sub-*_{B1plusmap}.nii.gz", maxDepth:2, size:1, flat:true)   
+           .fromFilePairs("$bids/**/fmap/sub-*_{B1plusmap}.nii.gz", maxDepth:2, size:1, flat:true)   
     (b1raw) = b1_data       
            .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
            .separate(1)  
 }   
 else{
-    error "ERROR: Argument (--root) must be passed. See USAGE."
+    error "ERROR: Argument (--bids) must be passed. See USAGE."
 }
 
 /*Each data type is defined as a channel. To pass all the channels 
@@ -228,7 +228,7 @@ log.info "======================="
 
 process Align_Input_Volumes {
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     input:
         tuple val(sid), file(pdw), file(mtw), file(t1w) from mtsat_for_alignment
@@ -266,7 +266,7 @@ process Align_Input_Volumes {
 
 process Extract_Brain{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     when:
         params.use_bet == true
@@ -326,7 +326,7 @@ t1w_post_ch3
 
 process B1_Align{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     when:
         params.use_b1cor == true
@@ -363,7 +363,7 @@ b1_aligned_ch1
             
 process B1_Smooth_With_Mask{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     if (!params.matlab_path_exception){
     container 'qmrlab/minimal:v2.3.1'
@@ -406,7 +406,7 @@ process B1_Smooth_With_Mask{
 
 process B1_Smooth_Without_Mask{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     container 'qmrlab/minimal:v2.3.1'
 
@@ -495,7 +495,7 @@ following 4 processes will be executed.
 
 process Fit_MTsat_With_B1map_With_Bet{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     when:
         params.use_b1cor == true && params.use_bet == true
@@ -524,7 +524,7 @@ process Fit_MTsat_With_B1map_With_Bet{
 
 process Fit_MTsat_With_B1map_Without_Bet{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
 
     when:
         params.use_b1cor == true && params.use_bet == false
@@ -560,7 +560,7 @@ mtsat_without_b1_bet
 
 process Fit_MTsat_Without_B1map_With_Bet{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
     
     when:
         params.use_b1cor == false && params.use_bet==true
@@ -589,8 +589,10 @@ process Fit_MTsat_Without_B1map_With_Bet{
 
 process Fit_MTsat_Without_B1map_Without_Bet{
     tag "${sid}"
-    publishDir "$root/derivatives/qMRLab/${sid}", mode: 'copy'
-    
+    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+    programVersion = '2.7.3-beta'
+    (full, major, minor, patch, flavor) = (programVersion =~ /(\d+)\.(\d+)\.(\d+)-?(.+)/)[0]
+
     when:
         params.use_b1cor == false && params.use_bet==false
 
