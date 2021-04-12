@@ -67,6 +67,7 @@ workflow.onComplete {
     log.info "Pipeline completed at: $workflow.complete"
     log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
     log.info "Execution duration: $workflow.duration"
+    log.info "Mnemonic ID: $workflow.runName"
 }
 
 /*Define bindings for --help*/
@@ -109,6 +110,7 @@ if(params.bids){
     bids = file(params.bids)
     derivativesDir = "$params.qmrlab_derivatives"
     log.info "Derivatives: $params.qmrlab_derivatives"
+    log.info "Nextflow Work Dir: $workflow.workDir"
 
     Channel
         .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
