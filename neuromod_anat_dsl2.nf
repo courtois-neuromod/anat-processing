@@ -219,7 +219,8 @@ process publishOutputs {
       path(mtw_disp), path(pdw_disp), \
       path(t1map), path(mtsat), path(t1mapj), \
       path(mtsatj), path(qmrmodel), path(mp2raget1), \
-      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel) 
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
 
     publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'move', overwrite: true
 
@@ -229,7 +230,8 @@ process publishOutputs {
       path(mtw_disp), path(pdw_disp), \
       path(t1map), path(mtsat), path(t1mapj), \
       path(mtsatj), path(qmrmodel), path(mp2raget1), \
-      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel)
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
 
     script:
         """
@@ -264,6 +266,7 @@ include { extractBrain } from './modules/fsl'
 include { smoothB1WithMask; smoothB1WithoutMask } from './modules/filter_map' addParams(runcmd: params.runcmd)
 include { fitMtsatWithB1Mask; fitMtsatWithB1; fitMtsatWithBet; fitMtsat} from './modules/mt_sat' addParams(runcmd: params.runcmd)
 include { fitMp2rageUni} from './modules/mp2rage' addParams(runcmd: params.runcmd)
+include { fitMtratioWithMask} from './modules/mt_ratio' addParams(runcmd: params.runcmd)
 
 
 workflow {
@@ -283,6 +286,7 @@ mtsat_from_alignment
         .multiMap{it ->
         Publish: it
         Fit: tuple(it[0],it[1],it[2])
+        Mtr: tuple(it[0],it[1],it[2])
         }
         .set {Aligned}
 
@@ -369,6 +373,11 @@ Aligned.Fit
 
 }
 
+// MTR with mask
+Aligned.Mtr
+    .join(Mask)
+    .set{fitting_mtr}
+
 // Fit without B1 map channel 
 Aligned.Fit
     .join(T1w.Nii)
@@ -393,9 +402,13 @@ fitMtsatWithBet(fitting_with_b1)
 
 fitMtsat(mtsat_fitting_without_b1)
 
+// Fit MTR
+fitMtratioWithMask(fitting_mtr)
+
 Aligned.Publish
     .join(fitMtsatWithB1Mask.out.publish_mtsat)
     .join(publish_mp2rage)
+    .join(fitMtratioWithMask.out.mtratio_output)
     .set {publish}
 
 b1_resampled
