@@ -31,6 +31,13 @@ include { getSubSesEntity; checkSesFolders } from './modules/bids_patterns'
 params.bids = false 
 params.help = false
 
+log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
+log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
+log.info " #  #  # #####  #    # #    # #    # # ## # #    # #    # "
+log.info " #   # # #      #    # #####  #    # #    # #    # #    # "
+log.info " #    ## #      #    # #   #  #    # #    # #    # #    # "
+log.info " #     # ######  ####  #    #  ####  #    #  ####  #####  "
+
 /* Call to the mt_sat_wrapper.m will be invoked by params.runcmd.
 Depending on the params.platform selection, params.runcmd 
 may point to MATLAB or Octave. 
@@ -130,6 +137,17 @@ if(params.bids){
         }
         .set {jsonMTS}
 
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.nii.gz", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {niiMP2RAGE}
+
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.json", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {jsonMP2RAGE}
+
+
     /* ==== BIDS: B1 map ==== */             
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
@@ -174,6 +192,7 @@ T1w = pairT1w
                     Json: tuple(it[0],it[2])
                     }
 
+
 // ================================== IMPORTANT 
 // TUPLE ORDER: PDW --> MTW --> T1W
 // NII --> JSON 
@@ -183,6 +202,11 @@ PDw.Nii
     .join(MTw.Nii)
     .join(T1w.Nii)
     .set{mtsat_for_alignment}
+
+niiMP2RAGE.UNIT1
+    .join(jsonMP2RAGE.UNIT1)
+    .set{pairMP2RAGE}
+
 
 process publishOutputs {
 
@@ -194,7 +218,8 @@ process publishOutputs {
       path(mtw_aligned), path(pdw_aligned), \
       path(mtw_disp), path(pdw_disp), \
       path(t1map), path(mtsat), path(t1mapj), \
-      path(mtsatj), path(qmrmodel)
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel) 
 
     publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'move', overwrite: true
 
@@ -203,7 +228,8 @@ process publishOutputs {
       path(mtw_aligned), path(pdw_aligned), \
       path(mtw_disp), path(pdw_disp), \
       path(t1map), path(mtsat), path(t1mapj), \
-      path(mtsatj), path(qmrmodel)
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel)
 
     script:
         """
@@ -237,10 +263,14 @@ include { alignMtsatInputs; resampleB1 } from './modules/ants'
 include { extractBrain } from './modules/fsl'
 include { smoothB1WithMask; smoothB1WithoutMask } from './modules/filter_map' addParams(runcmd: params.runcmd)
 include { fitMtsatWithB1Mask; fitMtsatWithB1; fitMtsatWithBet; fitMtsat} from './modules/mt_sat' addParams(runcmd: params.runcmd)
+include { fitMp2rageUni} from './modules/mp2rage' addParams(runcmd: params.runcmd)
 
 
 workflow {
 
+fitMp2rageUni(pairMP2RAGE)
+
+publish_mp2rage = fitMp2rageUni.out.mp2rage_output
 // EXECUTE PROCESS (tuple order: sid, pdw, mtw, t1w)
 alignMtsatInputs(mtsat_for_alignment)
 
@@ -365,6 +395,7 @@ fitMtsat(mtsat_fitting_without_b1)
 
 Aligned.Publish
     .join(fitMtsatWithB1Mask.out.publish_mtsat)
+    .join(publish_mp2rage)
     .set {publish}
 
 b1_resampled
