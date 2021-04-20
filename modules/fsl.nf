@@ -1,4 +1,6 @@
-process extract_brain {
+nextflow.enable.dsl=2
+
+process extractBrain {
     tag { sid }
 
     when:
@@ -9,7 +11,7 @@ process extract_brain {
 
     output:
         tuple val(sid), path("${sid}_acq-T1w_mask.nii.gz"), optional: true, \
-        emit: t1w_mask_from_bet
+        emit: mask_from_bet
 
     script:
          if (params.bet_recursive){

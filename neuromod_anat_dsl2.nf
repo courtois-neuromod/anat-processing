@@ -27,11 +27,16 @@ Users: Please see USAGE for further details
 /*Set defaults for parameters determining logic flow to false*/
 nextflow.enable.dsl=2
 include { getSubSesEntity; checkSesFolders } from './modules/bids_patterns'
-include { mtsat_align_inputs } from './modules/ants'
-include { extract_brain } from './modules/fsl'
 
 params.bids = false 
 params.help = false
+
+log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
+log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
+log.info " #  #  # #####  #    # #    # #    # # ## # #    # #    # "
+log.info " #   # # #      #    # #####  #    # #    # #    # #    # "
+log.info " #    ## #      #    # #   #  #    # #    # #    # #    # "
+log.info " #     # ######  ####  #    #  ####  #    #  ####  #####  "
 
 /* Call to the mt_sat_wrapper.m will be invoked by params.runcmd.
 Depending on the params.platform selection, params.runcmd 
@@ -69,6 +74,7 @@ workflow.onComplete {
     log.info "Pipeline completed at: $workflow.complete"
     log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
     log.info "Execution duration: $workflow.duration"
+    log.info "Mnemonic ID: $workflow.runName"
 }
 
 /*Define bindings for --help*/
@@ -111,6 +117,7 @@ if(params.bids){
     bids = file(params.bids)
     derivativesDir = "$params.qmrlab_derivatives"
     log.info "Derivatives: $params.qmrlab_derivatives"
+    log.info "Nextflow Work Dir: $workflow.workDir"
 
     Channel
         .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
@@ -130,13 +137,24 @@ if(params.bids){
         }
         .set {jsonMTS}
 
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.nii.gz", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {niiMP2RAGE}
+
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.json", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {jsonMP2RAGE}
+
+
+    /* ==== BIDS: B1 map ==== */             
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
-    //b1_data = Channel
-    //       .fromFilePairs("$bids/${dirInputLevel}fmap/sub-*_acq-flipangle_{B1plusmap}.nii.gz", maxDepth:2, size:1, flat:true)   
-    // (b1raw) = b1_data       
-       //    .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
-       //    .separate(1)  
+    Channel
+           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
+           .multiMap { it -> AngleMap: it }
+           .set {B1}
 }   
 else{
     error "ERROR: Argument (--bids) must be passed. See USAGE."
@@ -149,33 +167,48 @@ niiMTS.PDw
    .set {pairPDw}
 
 PDw = pairPDw
-        .multiMap { it -> Orig: it }
+        .multiMap { it -> 
+                    Nii: tuple(it[0],it[1])
+                    Json: tuple(it[0],it[2])
+                  }
 
 niiMTS.MTw
    .join(jsonMTS.MTw)
    .set {pairMTw}
 
 MTw = pairMTw
-        .multiMap { it -> Orig: it }
+        .multiMap { it -> 
+                    Nii: tuple(it[0],it[1]) 
+                    Json: tuple(it[0],it[2])
+                    }
 
 niiMTS.T1w
    .join(jsonMTS.T1w)
    .set {pairT1w}
 
 T1w = pairT1w
-        .multiMap { it -> Orig: Bet: Post: it }
+        .multiMap { it -> 
+                    Nii:  tuple(it[0],it[1]) 
+                    Json: tuple(it[0],it[2])
+                    }
+
 
 // ================================== IMPORTANT 
 // TUPLE ORDER: PDW --> MTW --> T1W
 // NII --> JSON 
 // CRITICAL TO FOLLOW THE SAME ORDER IN INPUTS
 
-PDw.Orig
-    .join(MTw.Orig)
-    .join(T1w.Orig)
+PDw.Nii
+    .join(MTw.Nii)
+    .join(T1w.Nii)
     .set{mtsat_for_alignment}
 
-process publish_outputs {
+niiMP2RAGE.UNIT1
+    .join(jsonMP2RAGE.UNIT1)
+    .set{pairMP2RAGE}
+
+
+process publishOutputs {
 
     exec:
         out = getSubSesEntity("${sid}")
@@ -183,13 +216,22 @@ process publish_outputs {
     input:
       tuple val(sid), \
       path(mtw_aligned), path(pdw_aligned), \
-      path(mtw_disp), path(pdw_disp)
+      path(mtw_disp), path(pdw_disp), \
+      path(t1map), path(mtsat), path(t1mapj), \
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
 
     publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'move', overwrite: true
 
     output:
-      tuple val(sid), path(mtw_aligned), path(pdw_aligned),\
-      path(mtw_disp), path(pdw_disp)
+      tuple val(sid), \
+      path(mtw_aligned), path(pdw_aligned), \
+      path(mtw_disp), path(pdw_disp), \
+      path(t1map), path(mtsat), path(t1mapj), \
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
 
     script:
         """
@@ -198,11 +240,60 @@ process publish_outputs {
         """
 }
 
+process publishOutputsFmap {
+
+    exec:
+        out = getSubSesEntity("${sid}")
+
+    input:
+      tuple val(sid), \
+      path(b1res), path(smooth)
+
+    publishDir "${derivativesDir}/${out.sub}/${out.ses}fmap", mode: 'move', overwrite: true
+
+    output:
+      tuple val(sid), \
+      path(b1res),path(smooth)
+
+    script:
+        """
+        mkdir -p ${derivativesDir}
+        """
+}
+
+include { alignMtsatInputs; resampleB1 } from './modules/ants'
+include { extractBrain } from './modules/fsl'
+include { smoothB1WithMask; smoothB1WithoutMask } from './modules/filter_map' addParams(runcmd: params.runcmd)
+include { fitMtsatWithB1Mask; fitMtsatWithB1; fitMtsatWithBet; fitMtsat} from './modules/mt_sat' addParams(runcmd: params.runcmd)
+include { fitMp2rageUni} from './modules/mp2rage' addParams(runcmd: params.runcmd)
+include { fitMtratioWithMask} from './modules/mt_ratio' addParams(runcmd: params.runcmd)
+
 
 workflow {
 
-mtsat_align_inputs(mtsat_for_alignment)
-extract_brain(T1w.Bet)
+fitMp2rageUni(pairMP2RAGE)
+
+publish_mp2rage = fitMp2rageUni.out.mp2rage_output
+// EXECUTE PROCESS (tuple order: sid, pdw, mtw, t1w)
+alignMtsatInputs(mtsat_for_alignment)
+
+// Get aligned images (tuple order: sid, pdw, mtw, pdwdisp, mtwdisp)
+mtsat_from_alignment = alignMtsatInputs.out.mtsat_from_alignment
+
+// All these files will be eventually published, but we need a subsample of them
+// to proceed with the workflow, which are first 3 tuple elements (sid, pdw, mtw)
+mtsat_from_alignment
+        .multiMap{it ->
+        Publish: it
+        Fit: tuple(it[0],it[1],it[2])
+        Mtr: tuple(it[0],it[1],it[2])
+        }
+        .set {Aligned}
+
+// EXECUTE PROCESS (tuple order: sid, t1w)
+extractBrain(T1w.Nii)
+
+mask_from_bet = extractBrain.out.mask_from_bet
 
 if (!params.use_bet){
     Channel
@@ -210,67 +301,121 @@ if (!params.use_bet){
         .set{mask_from_bet}
 }
 
-publish_outputs(mtsat_align_inputs.out.mtsat_from_alignment)
+// Clone
+Mask = mask_from_bet
+            //.multiMap { it -> Split1: Split2: Split3: it }
 
+// Join channels by tuple index for resampling b1+ map (ref t1w)
+T1w.Nii
+    .join(B1.AngleMap)
+    .set{b1_for_alignment}
+
+// Process val(sid), file(t1w), file(b1raw)
+resampleB1(b1_for_alignment)
+
+// Collect output
+b1_resampled = resampleB1.out.b1_resampled
+
+// Create empty channel as b1_resampled output is optional.
+if (!params.use_b1cor){
+    Channel
+        .empty()
+        .set{b1_resampled}
 }
 
 
+// Join channels for smoothing with map
+b1_resampled
+    .join(Mask)
+    .set {b1_for_smoothing_with_mask}
 
+// EXECUTE PROCESS (tuple order: sid, b1, mask)
+smoothB1WithMask(b1_for_smoothing_with_mask)
 
+// Collect ouputs
+b1_filtered_w_mask = smoothB1WithMask.out.b1_filtered_w_mask
+                        .multiMap{it->
+                        Publish: it
+                        Nii: tuple(it[0],it[1])
+                        }
 
+// EXECUTE PROCESS (tuple order: sid, b1)
+smoothB1WithoutMask(b1_resampled)
 
+// Collect ouputs
+b1_filtered_wo_mask = smoothB1WithoutMask.out.b1_filtered_wo_mask
+                        .multiMap{it->
+                        Publish: it
+                        Nii: tuple(it[0],it[1])
+                        }
 
+// Join data channels based on parameter selection
+// Fit with B1 
+if (params.use_bet){
 
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .join(b1_filtered_w_mask.Nii)
+    .set{fitting_with_b1}
 
+}else{
 
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .join(b1_filtered_wo_mask.Nii)
+    .set{fitting_with_b1}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-process Align_Input_Volumes {
-    tag "${sid}"
-
-    exec:
-        out = getSubSesEntity("${sid}")
-
-
-    input:
-        tuple val(sid), file(pdw), file(mtw), file(t1w), file(pdwj), file(mtwj), file(t1wj) from agah
-    
-    publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'copy'
-    publishDir "${derivativesDir}", pattern: '*_description.json', mode: 'copy'
-
-    output:
-        file "${sid}_T1map.nii.gz" // Really impoartant to fetch these for process to fail otherwise. 
-        file "${sid}_MTsat.nii.gz"
-        file "${sid}_T1map.json"
-        file "${sid}_MTsat.json"
-        file "*" // To capture dataset description's pattern matching publishDir and other outputs
-        
-    script:
-        """
-        echo $pdwj
-        mkdir -p ${derivativesDir}
-        """
 }
-*/
+
+// MTR with mask
+Aligned.Mtr
+    .join(Mask)
+    .set{fitting_mtr}
+
+// Fit without B1 map channel 
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .set{mtsat_fitting_without_b1}
+
+mtsat_fitting_without_b1
+    .join(Mask)
+    .set{ fitting_without_b1_bet}
+
+fitting_with_b1
+    .join(Mask)
+    .set{mtsat_with_b1_bet}
+
+fitMtsatWithB1Mask(mtsat_with_b1_bet)
+
+fitMtsatWithB1(fitting_with_b1)
+
+fitMtsatWithBet(fitting_with_b1)
+
+fitMtsat(mtsat_fitting_without_b1)
+
+// Fit MTR
+fitMtratioWithMask(fitting_mtr)
+
+Aligned.Publish
+    .join(fitMtsatWithB1Mask.out.publish_mtsat)
+    .join(publish_mp2rage)
+    .join(fitMtratioWithMask.out.mtratio_output)
+    .set {publish}
+
+b1_resampled
+   .join(b1_filtered_w_mask.Nii)
+   .set{publishfmap}
+
+publishOutputs(publish)
+publishOutputsFmap(publishfmap)
+
+}
