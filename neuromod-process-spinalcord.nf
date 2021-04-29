@@ -98,8 +98,8 @@ if(params.bids){
         // This is how we set the channel's name! 
         .set {niiMTS}
        // Now, this is what we expect to find under niiMTS: 
-       // - niiMTS.PWD              [[sub-01_ses001, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz],
-       //                            [sub-01_ses002, sub-01_ses-002_acq-MToff_bp-spinalcord_MTS.nii.gz]...]
+       // - niiMTS.PDw              [[sub-01_ses001, sub-01_ses-001_acq-PDw_bp-spinalcord_MTS.nii.gz],
+       //                            [sub-01_ses002, sub-01_ses-002_acq-PDw_bp-spinalcord_MTS.nii.gz]...]
        // - niiMTS.T1w              [[sub-01_ses001, sub-01_ses-001_acq-T1w_bp-spinalcord_MTS.nii.gz],
        //                            [sub-01_ses002, sub-01_ses-002_acq-T1w_bp-spinalcord_MTS.nii.gz]...]
        // Similar for MTw.
@@ -107,7 +107,7 @@ if(params.bids){
     // This will do the same thing for spinal cord MTS iput pairs to fetch json files under 3 
     // channels that lives under jsonMTS namespace. Again, each channel contains tuples of [[sid, filename],...].
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_bp-cspine_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_bp-cspine_MTS.json", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -139,14 +139,14 @@ Given the following channels:
 and the following expression: 
   Ch-nii
     .join(Ch-json)
-    .set(pairExample)
+    .set{pairExample}
 
 The new pairExample channel will look like: 
-  [sub-01_ses-001, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz]
+  [sub-01_ses-001, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.json]
 
 >>>> IMPORTANT <<<<<< 
 
-The order at which you joing channels is highly critical. In this example we joined Ch-json into
+The order at which you join channels is highly critical. In this example we joined Ch-json into
 Ch-nii. Therefore the order will be [sid, nii, json] for indexes [0,1,2]. Let's say we will send this 
 pairExample channel to a process as an input: 
 
@@ -243,6 +243,8 @@ process publishOutputs {
         out = getSubSesEntity("${sid}")
 
     // Again, order matters.
+    // "val" is a Nextflow convention to declare a variable to include in the process
+    // The input variables are outputs in the process. Eg: "segGM" is listed spinalcordsegmentation.process.output. Again, order matters.
     input:
       tuple val(sid), file(mtsExample), \
       file(segGM), file(segWM), file(segCSF)
