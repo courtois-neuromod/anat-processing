@@ -1,0 +1,79 @@
+Neuromod spinal cord data processing pipeline
+===================
+
+USAGE
+
+Prototype: 
+----------
+nextflow -C neuromod-process-spinalcord.config run neuromod-process-spinalcord.nf [OPTIONAL_ARGUMENTS] (--bids)
+
+Example:
+---------
+nextflow -C neuromod-process-spinalcord.config -log log_directory/sct.log run neuromod-process-spinalcord.nf --bids /neuromod_bids_dir -w /work_directory -with-report report_spinal.html
+
+DESCRIPTION
+
+    --bids=/path/to/[root]              Root folder containing BIDS data
+    -C                                  Use the specified configuration file overriding any defaults.
+    -log                                Set nextflow log file path
+    -w                                  The working directory. Note that if you delete or move the pipeline 
+                                        work directory, this will prevent to use the resume feature in subsequent 
+                                        runs. Also note that the pipeline work directory is intended to be used as a 
+                                        temporary scratch area. The final workflow outputs are expected to be stored in a 
+                                        different location specified using the publishDir directive.
+    -with-report                        Specifcy a report name (e.g. report.html) for having interactive workflow execution report.
+    -resume                             Pass as the last argument if you'd like to resume a previously cached 
+                                        workflow, which was interrupted previously.
+
+FOLDER ORGANIZATION
+
+BIDS convention                         For MTsat data
+
+                                        [root]
+                                        ├── sub-01
+                                            │── ses-001/anat
+                                            │   ├── sub-01_acq-MTon_bp-spine_MTS.nii.gz
+                                            |   ├── sub-01_acq-MTon_bp-spine_MTS.json
+                                            │   ├── sub-01_acq-MToff_bp-spine_MTS.nii.gz
+                                            │   ├── sub-01_acq-MToff_bp-spine_MTS.json
+                                            │   ├── sub-01_acq-T1w_bp-spine_MTS.nii.gz
+                                            │   └── sub-01_acq-T1w_bp-spine_MTS.json
+                                            └── fmap
+                                                └── sub-01_TB1map.nii.gz (optional)
+
+
+OPTIONAL ARGUMENTS
+
+When passed as an argument during `nextflow run` call, the respective value defined for that parameter 
+in the neuromod-process-spinalcord.config will be overridden.
+
+--sct_parameter                          [/this/that/type] Explanation.
+--sct_another_parameter                  [/this/that/type] Explanation.
+
+
+NOTES
+
+- Timing parameters in the .json files MUST be in seconds. 
+
+- Subject IDs are used as the primary process ID and tag throughout the pipeline. Defined by the
+  following BIDS entities: 
+    - sub
+    - ses
+    - rec
+    - acq (unless reserved for inferring file pairs)
+
+
+
+- All the OPTIONAL ARGUMENTS can be modified in the `nextflow.config` file. The same 
+  config file is consumed by both `mtsatflow.nf` and `mtsatflow_BIDS.nf`.  
+
+- Unless the docker option is enabled in the `nextflow.config`, the following
+  dependencies must be installed and added to the system path: 
+    * SCT 
+
+- You can take advantage of Nextflow's comprehensive tracing and visualization 
+  features while executing this pipeline: https://www.nextflow.io/docs/latest/tracing.html. 
+
+REFERENCES
+
+Please cite the following if you use this module:

@@ -28,8 +28,8 @@ Users: Please see USAGE for further details
 nextflow.enable.dsl=2
 include { getSubSesEntity; checkSesFolders } from './modules/bids_patterns'
 
-params.bids = false 
 params.help = false
+params.bids = false 
 
 log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
 log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
@@ -79,7 +79,7 @@ workflow.onComplete {
 
 /*Define bindings for --help*/
 if(params.help) {
-    usage = file("$baseDir/USAGE")
+    usage = file("$baseDir/USAGE-ANAT")
 
     cpu_count = Runtime.runtime.availableProcessors()
     bindings = ["ants_dim":"$params.ants_dim",

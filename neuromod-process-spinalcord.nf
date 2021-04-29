@@ -1,75 +1,38 @@
 #!/usr/bin/env nextflow
 
-/*
-WIP DSL2 workflow for Neuromod anat processing.
+/* 
+Header commment goes here.
 
-Dependencies: 
-    These dependencies must be installed if Docker is not going
-    to be used. 
-        - Advanced notmarization tools (ANTs, https://github.com/ANTsX/ANTs)
-        - FSL  
-        - qMRLab (https://qmrlab.org) 
-        - git     
+TO DISPLAY HELP:
+----------------
+nextflow -C neuromod-process-spinalcord.config run neuromod-process-spinalcord.nf --help
 
-Docker: 
-        - https://hub.docker.com/u/qmrlab
-        - qmrlab/minimal:v2.5.0b
-        - qmrlab/antsfsl:latest
+SIMPLEST USE:
+-------------
+nextflow -C neuromod-process-spinalcord.config run neuromod-process-spinalcord.nf --bids ~/neuromod_bids_dir
+*/
 
-Author:
-    Agah Karakuzu 2019
-    agahkarakuzu@gmail.com 
-
-Users: Please see USAGE for further details
- */
-
-
-/*Set defaults for parameters determining logic flow to false*/
+// Enable NEXTFLOW DSL2 to be able to include modules.
 nextflow.enable.dsl=2
+
+// Include bids_patterns module to infer session-level file 
+// organization. This determines the depth of directories 
+// to fetch input file pairs.
 include { getSubSesEntity; checkSesFolders } from './modules/bids_patterns'
 
+// Default behaviour if user passes 
+// --bids or --help during workflow call, will be overridden.
 params.bids = false 
 params.help = false
 
-log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
-log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
-log.info " #  #  # #####  #    # #    # #    # # ## # #    # #    # "
-log.info " #   # # #      #    # #####  #    # #    # #    # #    # "
-log.info " #    ## #      #    # #   #  #    # #    # #    # #    # "
-log.info " #     # ######  ####  #    #  ####  #    #  ####  #####  "
+// Print some fancy ASCII art.
+log.info  "███    ██ ███████ ██    ██ ██████   ██████  ███    ███  ██████  ██████        ███████  ██████ ████████ "
+log.info  "████   ██ ██      ██    ██ ██   ██ ██    ██ ████  ████ ██    ██ ██   ██       ██      ██         ██    "
+log.info  "██ ██  ██ █████   ██    ██ ██████  ██    ██ ██ ████ ██ ██    ██ ██   ██ █████ ███████ ██         ██    "
+log.info  "██  ██ ██ ██      ██    ██ ██   ██ ██    ██ ██  ██  ██ ██    ██ ██   ██            ██ ██         ██    "
+log.info  "██   ████ ███████  ██████  ██   ██  ██████  ██      ██  ██████  ██████        ███████  ██████    ██    "
 
-/* Call to the mt_sat_wrapper.m will be invoked by params.runcmd.
-Depending on the params.platform selection, params.runcmd 
-may point to MATLAB or Octave. 
-*/
-if (params.platform == "octave"){
-
-    if (params.octave_path){
-        log.info "Using Octave executable declared in nextflow.config."
-        params.octave = params.octave_path + " --no-gui --eval"
-    }else{
-        log.info "Using Octave in Docker or (if local) from the sys path."
-        params.octave = "octave --no-gui --eval"
-    }
-
-    params.runcmd = params.octave 
-}
-
-if (params.platform == "matlab"){
-   
-    if (params.matlab_path){
-        log.info "Using MATLAB executable declared in nextflow.config."
-        params.matlab = params.matlab_path + " -nodisplay -nosplash -nodesktop -r"
-    }else{
-        log.info "Using MATLAB from the sys path."
-        params.matlab = "matlab -nodisplay -nosplash -nodesktop -r"
-    }
-
-    params.runcmd = params.matlab
-}
-
-params.wrapper_repo = "https://github.com/qMRLab/qMRWrappers.git"
-              
+// This log block is executed when the workflow is completed without errors
 workflow.onComplete {
     log.info "Pipeline completed at: $workflow.complete"
     log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
@@ -77,30 +40,15 @@ workflow.onComplete {
     log.info "Mnemonic ID: $workflow.runName"
 }
 
-/*Define bindings for --help*/
+/*Define what is shown when --help is called*/
 if(params.help) {
-    usage = file("$baseDir/USAGE")
+    // To print USAGE-SCT file
+    usage = file("$baseDir/USAGE-SCT")
 
+    // To print paremeter-values
     cpu_count = Runtime.runtime.availableProcessors()
-    bindings = ["ants_dim":"$params.ants_dim",
-                "ants_metric":"$params.ants_metric",
-                "ants_metric_weight":"$params.ants_metric_weight",
-                "ants_metric_bins":"$params.ants_metric_bins",
-                "ants_metric_sampling":"$params.ants_metric_sampling",
-                "ants_metric_samplingprct":"$params.ants_metric_samplingprct",
-                "ants_transform":"$params.ants_transform",
-                "ants_convergence":"$params.ants_convergence",
-                "ants_shrink":"$params.ants_shrink",
-                "ants_smoothing":"$params.ants_smoothing",
-                "use_b1cor":"$params.use_b1cor",
-                "b1cor_factor":"$params.b1cor_factor",
-                "use_bet":"$params.use_bet",
-                "bet_recursive":"$params.bet_recursive",
-                "bet_threshold":"$params.bet_threshold",
-                "platform":"$params.platform",
-                "matlab_path":"$params.matlab_path",
-                "octave_path":"$params.octave_path",
-                "qmrlab_path":"$params.qmrlab_path"
+    bindings = ["sct_parameter":"$params.sct_parameter",
+                "sct_another_parameter":"$params.sct_another_parameter"
                 ]
 
     engine = new groovy.text.SimpleTemplateEngine()
@@ -110,26 +58,56 @@ if(params.help) {
     return
 }
 
+// Infer entity-level file organization.
+// "$bids/${entity.dirInputLevel}" will inform nextflow to look for 
+// inputs in the correct directory.
 entity = checkSesFolders()
 
+// Fetch input channels only when the BIDS directory is provided. Terminate otherwise. 
 if(params.bids){
     log.info "Input: $params.bids"
     bids = file(params.bids)
-    derivativesDir = "$params.qmrlab_derivatives"
-    log.info "Derivatives: $params.qmrlab_derivatives"
+    // DEFINE DERIVATIVES DIRECTORY
+    derivativesDir  = "$params.bids/derivatives/SCT"
+    log.info "Derivatives: $derivativesDir"
     log.info "Nextflow Work Dir: $workflow.workDir"
 
+    // As channels define which files will be symbolically linked to the work directory, we need to 
+    // explicitly define what we need. For example, we cannot emit a channel for nii.gz files, then 
+    // expect a process to find .json by doing some string manipulation. That's why we'll use the 
+    // same pattern once again for json files.
+
+    // Initialize a channel for input file pairs of MTsat spinal cord data.
+    // "$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_bp-spinalcord_MTS.nii.gz" describes that 
+    // file pairs of MToff, MTon and T1w will be fetched for the glob pattern that allows multiple subjects 
+    // and sessions. This way, we will have all the MTsat related BIDS(nii) inputs fetched, across subjects and 
+    // sessions.
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        // maxDepth is 3 anat/sub/ses size is 3, because we have 3 inputs for MTsat. 
+        // The fromFilePairs requires the flat:true option to have the file pairs as separate elements 
+        // in the produced tuples.
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_bp-cspine_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        // 1) sid is the subject ID, i.e. whatever grabbed by * above (e.g. sub-01_ses-003)
+        // 2) .multiMap allows us to forward the items emitted by a source channel to two or 
+        // more output channels mapping each input value as a separate element.
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
         T1w: tuple(sid, T1w)
         }
+        // This is how we set the channel's name! 
         .set {niiMTS}
+       // Now, this is what we expect to find under niiMTS: 
+       // - niiMTS.PWD              [[sub-01_ses001, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz],
+       //                            [sub-01_ses002, sub-01_ses-002_acq-MToff_bp-spinalcord_MTS.nii.gz]...]
+       // - niiMTS.T1w              [[sub-01_ses001, sub-01_ses-001_acq-T1w_bp-spinalcord_MTS.nii.gz],
+       //                            [sub-01_ses002, sub-01_ses-002_acq-T1w_bp-spinalcord_MTS.nii.gz]...]
+       // Similar for MTw.
     
+    // This will do the same thing for spinal cord MTS iput pairs to fetch json files under 3 
+    // channels that lives under jsonMTS namespace. Again, each channel contains tuples of [[sid, filename],...].
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_bp-cspine_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -137,41 +115,66 @@ if(params.bids){
         }
         .set {jsonMTS}
 
+    // Create a channel for spinal cord T2w inputs 
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.nii.gz", maxDepth: 3, size: 1, flat: true)
-        .multiMap { it -> UNIT1: it }
-        .set {niiMP2RAGE}
+      .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T2w.nii.gz", maxDepth: 3, size: 1, flat: true)
+      .multiMap { it -> Nii: it }
+      .set {T2w}
 
-    Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.json", maxDepth: 3, size: 1, flat: true)
-        .multiMap { it -> UNIT1: it }
-        .set {jsonMP2RAGE}
-
-
-    /* ==== BIDS: B1 map ==== */             
-    /* ==== BIDS: B1 map ==== */             
-    /* Look for B1map in fmap folder */
-    Channel
-           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
-           .multiMap { it -> AngleMap: it }
-           .set {B1}
 }   
 else{
-    error "ERROR: Argument (--bids) must be passed. See USAGE."
+    error "ERROR: Argument (--bids) must be passed. See USAGE-SCT."
 }
 
-// First, join nii & json pairs with explicit notations 
-// provided by the multimap
+/** 
+>>>> What is the function of the .join operation?
+
+The join operator creates a channel that joins together the items emitted by two channels for which 
+exits a matching key. In our case, matching key is sid.
+
+Given the following channels:
+  Ch-nii  [sub-01_ses-001,sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz]
+  Ch-json [sub-01_ses-001,sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.json]
+
+and the following expression: 
+  Ch-nii
+    .join(Ch-json)
+    .set(pairExample)
+
+The new pairExample channel will look like: 
+  [sub-01_ses-001, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz, sub-01_ses-001_acq-MToff_bp-spinalcord_MTS.nii.gz]
+
+>>>> IMPORTANT <<<<<< 
+
+The order at which you joing channels is highly critical. In this example we joined Ch-json into
+Ch-nii. Therefore the order will be [sid, nii, json] for indexes [0,1,2]. Let's say we will send this 
+pairExample channel to a process as an input: 
+
+myProcess(pairExample)
+
+In pairExample, the input should be: 
+
+input:
+  tuple(sid), file(nii), file(json)
+
+So that $nii and $json represent a nii and json file, respectively. Swapping the order of 
+file(nii) and file(json) would result in $nii variable representing json files and vice versa.
+**/
+
+// Create a channel with name pairPDw that contains [sid, nii, json] tuples 
+// for all the *_acq-MToff_ files found in the dataset.
 niiMTS.PDw
    .join(jsonMTS.PDw)
    .set {pairPDw}
 
+// Re-organize pairPDW so that we can access NIfTI files via PDw.Nii and json 
+// files via PDw.Json. This reduces the chance of messing up the tuple order.
 PDw = pairPDw
         .multiMap { it -> 
                     Nii: tuple(it[0],it[1])
                     Json: tuple(it[0],it[2])
                   }
-
+// Follow the same semantic channel organization for the remaining MTsat file pairs. 
 niiMTS.MTw
    .join(jsonMTS.MTw)
    .set {pairMTw}
@@ -192,228 +195,109 @@ T1w = pairT1w
                     Json: tuple(it[0],it[2])
                     }
 
+// At this point we have PDW, MTw and T1w (each containing Nii and Json sub-channels)
+// for all the spinal-cord data. Now we can combine them as required by the process we 
+// will subject them to.
 
-// ================================== IMPORTANT 
-// TUPLE ORDER: PDW --> MTW --> T1W
-// NII --> JSON 
-// CRITICAL TO FOLLOW THE SAME ORDER IN INPUTS
+/** >> EXAMPLE 
+Let's say we have a process named alignInputs that needs nifti files only. 
+**/
 
+// This is how we collect inputs for the alignInputs process: 
 PDw.Nii
     .join(MTw.Nii)
     .join(T1w.Nii)
+    // ..._for_... convention indicates that this channel is intended as an input to a process. 
     .set{mtsat_for_alignment}
 
-niiMP2RAGE.UNIT1
-    .join(jsonMP2RAGE.UNIT1)
-    .set{pairMP2RAGE}
+/** 
+Now mtsat_for_alignment is a tuple that looks like: 
+  [[sub-01_ses-001, sub-01_ses-001_acq-MToff..nii.gz, sub-01_ses-001_acq-MTon..nii.gz, sub-01_ses-001_acq-T1w..nii.gz]]
 
+This is the reason why input declaration of alignInputs process MUST respect the following order:
+
+input:
+    tuple(sid), file(PDw), file(MTw), file(T1w)
+
+
+*/
+/* >>>>>>> DEFINE PROCESS FOR PUBLISHING OUTPUTS <<<<<<<<<
+
+/*  Process publishOutputs is a typical pattern in DSL2 to put final 
+outputs where they belong to (by copying/moving them from the work folder).
+In BIDS case, it is a derivatives folder `derivatives/sub-01/ses-001/anat/...`. 
+
+We define this process in the body of the main workflow file as it has to 
+access certain variables declared during runtime.
+
+TODO:
+    Test if { sid } instead of "${sid}" can help process access variable when 
+    it is declared to the scope. Same for derivativesDir If so, make publishOutputs a module.
+
+*/
 
 process publishOutputs {
 
+    // Infer session-level file organization.
     exec:
         out = getSubSesEntity("${sid}")
 
+    // Again, order matters.
     input:
-      tuple val(sid), \
-      path(mtw_aligned), path(pdw_aligned), \
-      path(mtw_disp), path(pdw_disp), \
-      path(t1map), path(mtsat), path(t1mapj), \
-      path(mtsatj), path(qmrmodel), path(mp2raget1), \
-      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
-      path(mtrnii), path(mtrjson), path(mtrmodel)
+      tuple val(sid), file(mtsExample), \
+      file(segGM), file(segWM), file(segCSF)
 
+    // This is where the files will be dropped. Mode move indicates that 
+    // the files will be moved (alternatives are copying or symlinking)
+    // We set overwrite true, if there are files sharing the same name with the 
+    // outputs, they'll be overwritten.
     publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'move', overwrite: true
 
+    // Output mirrors input as we are simply moving files.
     output:
-      tuple val(sid), \
-      path(mtw_aligned), path(pdw_aligned), \
-      path(mtw_disp), path(pdw_disp), \
-      path(t1map), path(mtsat), path(t1mapj), \
-      path(mtsatj), path(qmrmodel), path(mp2raget1), \
-      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
-      path(mtrnii), path(mtrjson), path(mtrmodel)
+      tuple val(sid), file(mtsExample), \
+      file(segGM), file(segWM), file(segCSF)
 
-    script:
-        """
-        mkdir -p ${derivativesDir}
-        echo "Transferring ${mtw_aligned} to ${derivativesDir}/${out.sub}/${out.ses}anat folder..."
-        """
-}
-
-process publishOutputsFmap {
-
-    exec:
-        out = getSubSesEntity("${sid}")
-
-    input:
-      tuple val(sid), \
-      path(b1res), path(smooth)
-
-    publishDir "${derivativesDir}/${out.sub}/${out.ses}fmap", mode: 'move', overwrite: true
-
-    output:
-      tuple val(sid), \
-      path(b1res),path(smooth)
-
+    // Generate derivatives folder
     script:
         """
         mkdir -p ${derivativesDir}
         """
 }
 
-// Here we include all the processes from modules/
+/* >>>>>>> INCLUDE MODULES <<<<<<<<<
+
+The reason we include modules here is that the sid variable is declared at this point. 
+If we do that at the very beginning, processes won't be able to access that important 
+variable.
+*/
+
+// Include T2_Segment_SpinalCord process from spinalcord_segmentation module.
 include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation'
+include { MTS_Align_SpinalCord } from './modules/spinalcord_mtsat'
 
-// Pipeline starts here
+// >>>>>>>>>>>>>>>>> WORKFLOW DESCRIPTION START <<<<<<<<<<<<<<<<<<
 workflow {
 
-fitMp2rageUni(pairMP2RAGE)
+// Send files collected by mtsat_for_alignment to the 
+// relevant process. 
+MTS_Align_SpinalCord(mtsat_for_alignment)
 
-publish_mp2rage = fitMp2rageUni.out.mp2rage_output
-// EXECUTE PROCESS (tuple order: sid, pdw, mtw, t1w)
-alignMtsatInputs(mtsat_for_alignment)
+// Collect outputs emitted by publish_spinal_mtsat channel. 
+// CONVENTION: process_name.out.emit_channel_name
+mtsat_from_alignment = MTS_Align_SpinalCord.out.publish_spinal_mtsat
 
-// Get aligned images (tuple order: sid, pdw, mtw, pdwdisp, mtwdisp)
-mtsat_from_alignment = alignMtsatInputs.out.mtsat_from_alignment
+// Same for segmenting T2w 
+T2_Segment_SpinalCord(T2w.Nii)
+masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
 
-// All these files will be eventually published, but we need a subsample of them
-// to proceed with the workflow, which are first 3 tuple elements (sid, pdw, mtw)
-mtsat_from_alignment
-        .multiMap{it ->
-        Publish: it
-        Fit: tuple(it[0],it[1],it[2])
-        Mtr: tuple(it[0],it[1],it[2])
-        }
-        .set {Aligned}
-
-// EXECUTE PROCESS (tuple order: sid, t1w)
-extractBrain(T1w.Nii)
-
-mask_from_bet = extractBrain.out.mask_from_bet
-
-if (!params.use_bet){
-    Channel
-        .empty()
-        .set{mask_from_bet}
-}
-
-// Clone
-Mask = mask_from_bet
-            //.multiMap { it -> Split1: Split2: Split3: it }
-
-// Join channels by tuple index for resampling b1+ map (ref t1w)
-T1w.Nii
-    .join(B1.AngleMap)
-    .set{b1_for_alignment}
-
-// Process val(sid), file(t1w), file(b1raw)
-resampleB1(b1_for_alignment)
-
-// Collect output
-b1_resampled = resampleB1.out.b1_resampled
-
-// Create empty channel as b1_resampled output is optional.
-if (!params.use_b1cor){
-    Channel
-        .empty()
-        .set{b1_resampled}
-}
-
-
-// Join channels for smoothing with map
-b1_resampled
-    .join(Mask)
-    .set {b1_for_smoothing_with_mask}
-
-// EXECUTE PROCESS (tuple order: sid, b1, mask)
-smoothB1WithMask(b1_for_smoothing_with_mask)
-
-// Collect ouputs
-b1_filtered_w_mask = smoothB1WithMask.out.b1_filtered_w_mask
-                        .multiMap{it->
-                        Publish: it
-                        Nii: tuple(it[0],it[1])
-                        }
-
-// EXECUTE PROCESS (tuple order: sid, b1)
-smoothB1WithoutMask(b1_resampled)
-
-// Collect ouputs
-b1_filtered_wo_mask = smoothB1WithoutMask.out.b1_filtered_wo_mask
-                        .multiMap{it->
-                        Publish: it
-                        Nii: tuple(it[0],it[1])
-                        }
-
-// Join data channels based on parameter selection
-// Fit with B1 
-if (params.use_bet){
-
-Aligned.Fit
-    .join(T1w.Nii)
-    .join(PDw.Json)
-    .join(MTw.Json)
-    .join(T1w.Json)
-    .join(b1_filtered_w_mask.Nii)
-    .set{fitting_with_b1}
-
-}else{
-
-Aligned.Fit
-    .join(T1w.Nii)
-    .join(PDw.Json)
-    .join(MTw.Json)
-    .join(T1w.Json)
-    .join(b1_filtered_wo_mask.Nii)
-    .set{fitting_with_b1}
-
-}
-
-// MTR with mask
-Aligned.Mtr
-    .join(Mask)
-    .set{fitting_mtr}
-
-// Fit without B1 map channel 
-Aligned.Fit
-    .join(T1w.Nii)
-    .join(PDw.Json)
-    .join(MTw.Json)
-    .join(T1w.Json)
-    .set{mtsat_fitting_without_b1}
-
-mtsat_fitting_without_b1
-    .join(Mask)
-    .set{ fitting_without_b1_bet}
-
-fitting_with_b1
-    .join(Mask)
-    .set{mtsat_with_b1_bet}
-
-fitMtsatWithB1Mask(mtsat_with_b1_bet)
-
-fitMtsatWithB1(fitting_with_b1)
-
-fitMtsatWithBet(fitting_with_b1)
-
-fitMtsat(mtsat_fitting_without_b1)
-
-// Fit MTR
-fitMtratioWithMask(fitting_mtr)
-
-Aligned.Publish
-    .join(fitMtsatWithB1Mask.out.publish_mtsat)
-    .join(publish_mp2rage)
-    .join(fitMtratioWithMask.out.mtratio_output)
+// Join channels
+mtsat_from_alignment 
+    .join(masks_from_segmentation)
     .set {publish}
 
-b1_resampled
-   .join(b1_filtered_w_mask.Nii)
-   .set{publishfmap}
-
+// Move files from work directory to where we'd like to find them (derivatives).
 publishOutputs(publish)
-publishOutputsFmap(publishfmap)
-
 }
 
 
