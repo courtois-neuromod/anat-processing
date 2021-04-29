@@ -45,7 +45,7 @@ if(params.help) {
     // To print USAGE-SCT file
     usage = file("$baseDir/USAGE-SCT")
 
-    // To print paremeter-values
+    // To print parameter-values
     cpu_count = Runtime.runtime.availableProcessors()
     bindings = ["sct_parameter":"$params.sct_parameter",
                 "sct_another_parameter":"$params.sct_another_parameter"
