@@ -13,7 +13,7 @@ process T2_Segment_SpinalCord{
 
     output:
         tuple val(sid), \
-        path("${sid}_bp-spine_T2w_seg_nii.gz"), \
+        path("${sid}_bp-spine_T2w_seg.nii.gz"), \
         emit: publish_spinal_seg
 
     script: 
