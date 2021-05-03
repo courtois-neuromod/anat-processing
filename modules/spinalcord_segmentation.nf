@@ -18,6 +18,6 @@ process T2_Segment_SpinalCord{
 
     script: 
         """
-        sct_deepseg_sc -i $t2w -c t2 -qc $params.qcDir
+        sct_deepseg_sc -i $t2w -c t2 -qc $params.qcDir -qc-subject ${sid}
         """
 }
