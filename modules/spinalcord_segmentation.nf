@@ -13,15 +13,11 @@ process T2_Segment_SpinalCord{
 
     output:
         tuple val(sid), \
-        path("${sid}_seg-gm_mask.txt"), \
-        path("${sid}_seg-wm_mask.txt"), \
-        path("${sid}_seg-csf_mask.txt"), \
+        path("${sid}_bp-spine_T2w_seg_nii.gz"), \
         emit: publish_spinal_seg
 
     script: 
         """
-        echo "From $t2w segmented GM\n" >> ${sid}_seg-gm_mask.txt 
-        echo "From $t2w segmented WM" >> ${sid}_seg-wm_mask.txt
-        echo "From $t2w segmented CSF" >> ${sid}_seg-csf_mask.txt
+        sct_deepseg_sc -i $t2w -c t2 -qc $params.qcDir
         """
 }

@@ -68,7 +68,7 @@ if(params.bids){
     log.info "Input: $params.bids"
     bids = file(params.bids)
     // DEFINE DERIVATIVES DIRECTORY
-    derivativesDir  = "$params.bids/derivatives/SCT"
+    derivativesDir = "$params.bids/derivatives/SCT"
     log.info "Derivatives: $derivativesDir"
     log.info "Nextflow Work Dir: $workflow.workDir"
 
@@ -246,8 +246,8 @@ process publishOutputs {
     // "val" is a Nextflow convention to declare a variable to include in the process
     // The input variables are outputs in the process. Eg: "segGM" is listed spinalcordsegmentation.process.output. Again, order matters.
     input:
-      tuple val(sid), file(mtsExample), \
-      file(segGM), file(segWM), file(segCSF)
+      tuple val(sid), \
+      file(T2wSeg)
 
     // This is where the files will be dropped. Mode move indicates that 
     // the files will be moved (alternatives are copying or symlinking)
@@ -257,8 +257,8 @@ process publishOutputs {
 
     // Output mirrors input as we are simply moving files.
     output:
-      tuple val(sid), file(mtsExample), \
-      file(segGM), file(segWM), file(segCSF)
+      tuple val(sid), \
+      file(T2wSeg)
 
     // Generate derivatives folder
     script:
@@ -275,7 +275,7 @@ variable.
 */
 
 // Include T2_Segment_SpinalCord process from spinalcord_segmentation module.
-include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation'
+include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation' addParams(qcDir: params.qcDir)
 include { MTS_Align_SpinalCord } from './modules/spinalcord_mtsat'
 
 // >>>>>>>>>>>>>>>>> WORKFLOW DESCRIPTION START <<<<<<<<<<<<<<<<<<
@@ -283,23 +283,22 @@ workflow {
 
 // Send files collected by mtsat_for_alignment to the 
 // relevant process. 
-MTS_Align_SpinalCord(mtsat_for_alignment)
+// MTS_Align_SpinalCord(mtsat_for_alignment)
 
 // Collect outputs emitted by publish_spinal_mtsat channel. 
 // CONVENTION: process_name.out.emit_channel_name
-mtsat_from_alignment = MTS_Align_SpinalCord.out.publish_spinal_mtsat
+// mtsat_from_alignment = MTS_Align_SpinalCord.out.publish_spinal_mtsat
 
 // Same for segmenting T2w 
 T2_Segment_SpinalCord(T2w.Nii)
 masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
 
 // Join channels
-mtsat_from_alignment 
-    .join(masks_from_segmentation)
-    .set {publish}
+// mtsat_from_alignment 
+//     .join(masks_from_segmentation)
+//     .set {publish}
 
 // Move files from work directory to where we'd like to find them (derivatives).
-publishOutputs(publish)
+publishOutputs(masks_from_segmentation)
 }
-
 
