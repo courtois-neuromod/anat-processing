@@ -248,17 +248,21 @@ process publishOutputs {
     input:
       tuple val(sid), \
       file(T2wSeg)
+      // file(T2wSeg), \
+      // file(T2wSegLabeled)
 
     // This is where the files will be dropped. Mode move indicates that 
     // the files will be moved (alternatives are copying or symlinking)
     // We set overwrite true, if there are files sharing the same name with the 
     // outputs, they'll be overwritten.
-    publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'move', overwrite: true
+    publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'copy', overwrite: true
 
     // Output mirrors input as we are simply moving files.
     output:
       tuple val(sid), \
       file(T2wSeg)
+      // file(T2wSeg), \
+      // file(T2wSegLabeled)
 
     // Generate derivatives folder
     script:
@@ -276,7 +280,7 @@ variable.
 
 // Include T2_Segment_SpinalCord process from spinalcord_segmentation module.
 include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation' addParams(qcDir: params.qcDir)
-include { MTS_Align_SpinalCord } from './modules/spinalcord_mtsat'
+include { T2_Vertebral_Labeling } from './modules/spinalcord_vertebral_labeling' addParams(qcDir: params.qcDir)
 
 // >>>>>>>>>>>>>>>>> WORKFLOW DESCRIPTION START <<<<<<<<<<<<<<<<<<
 workflow {
@@ -291,7 +295,18 @@ workflow {
 
 // Same for segmenting T2w 
 T2_Segment_SpinalCord(T2w.Nii)
-masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
+to_be_published = T2_Segment_SpinalCord.out.publish_spinal_seg
+
+// masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
+// T2w.Nii
+//   .join(masks_from_segmentation)
+//   .set{inputs_for_vertebral_labeling}
+// 
+// T2_Vertebral_Labeling(inputs_for_vertebral_labeling)
+// labels_from_labeling = T2_Vertebral_Labeling.out.publish_spinal_seg
+// masks_from_segmentation
+//   .join(labels_from_labeling)
+//   .set{to_be_published}
 
 // Join channels
 // mtsat_from_alignment 
@@ -299,6 +314,5 @@ masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
 //     .set {publish}
 
 // Move files from work directory to where we'd like to find them (derivatives).
-publishOutputs(masks_from_segmentation)
+publishOutputs(to_be_published)
 }
-
