@@ -247,9 +247,8 @@ process publishOutputs {
     // The input variables are outputs in the process. Eg: "segGM" is listed spinalcordsegmentation.process.output. Again, order matters.
     input:
       tuple val(sid), \
-      file(T2wSeg)
-      // file(T2wSeg), \
-      // file(T2wSegLabeled)
+      file(T2wSeg), \
+      file(T2wSegLabeled)
 
     // This is where the files will be dropped. Mode move indicates that 
     // the files will be moved (alternatives are copying or symlinking)
@@ -260,9 +259,8 @@ process publishOutputs {
     // Output mirrors input as we are simply moving files.
     output:
       tuple val(sid), \
-      file(T2wSeg)
-      // file(T2wSeg), \
-      // file(T2wSegLabeled)
+      file(T2wSeg), \
+      file(T2wSegLabeled)
 
     // Generate derivatives folder
     script:
@@ -295,18 +293,17 @@ workflow {
 
 // Same for segmenting T2w 
 T2_Segment_SpinalCord(T2w.Nii)
-to_be_published = T2_Segment_SpinalCord.out.publish_spinal_seg
+// to_be_published = T2_Segment_SpinalCord.out.publish_spinal_seg
+masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
+T2w.Nii
+  .join(masks_from_segmentation)
+  .set{inputs_for_vertebral_labeling}
 
-// masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
-// T2w.Nii
-//   .join(masks_from_segmentation)
-//   .set{inputs_for_vertebral_labeling}
-// 
-// T2_Vertebral_Labeling(inputs_for_vertebral_labeling)
-// labels_from_labeling = T2_Vertebral_Labeling.out.publish_spinal_seg
-// masks_from_segmentation
-//   .join(labels_from_labeling)
-//   .set{to_be_published}
+T2_Vertebral_Labeling(inputs_for_vertebral_labeling)
+labels_from_labeling = T2_Vertebral_Labeling.out.publish_spinal_seg
+masks_from_segmentation
+  .join(labels_from_labeling)
+  .set{to_be_published}
 
 // Join channels
 // mtsat_from_alignment 
