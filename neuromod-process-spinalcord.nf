@@ -114,19 +114,21 @@ if(params.bids){
         T1w: tuple(sid, T1w)
         }
         .set {jsonMTS}
-
+    
     // Create a channel for spinal cord T1w inputs 
     Channel
       .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T1w.nii.gz", maxDepth: 3, size: 1, flat: true)
       .multiMap { it -> Nii: it }
       .set {T1w}
-
+    
     // Create a channel for spinal cord T2w inputs 
     Channel
       .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T2w.nii.gz", maxDepth: 3, size: 1, flat: true)
       .multiMap { it -> Nii: it }
       .set {T2w}
     
+
+    // Fetch subject ID
     Channel
       .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T2w.nii.gz", maxDepth: 3, size: 1, flat: true)
       .set {SubjectID}
