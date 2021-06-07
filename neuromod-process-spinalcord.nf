@@ -115,11 +115,21 @@ if(params.bids){
         }
         .set {jsonMTS}
 
+    // Create a channel for spinal cord T1w inputs 
+    Channel
+      .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T1w.nii.gz", maxDepth: 3, size: 1, flat: true)
+      .multiMap { it -> Nii: it }
+      .set {T1w}
+
     // Create a channel for spinal cord T2w inputs 
     Channel
       .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T2w.nii.gz", maxDepth: 3, size: 1, flat: true)
       .multiMap { it -> Nii: it }
       .set {T2w}
+    
+    Channel
+      .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_bp-cspine_T2w.nii.gz", maxDepth: 3, size: 1, flat: true)
+      .set {SubjectID}
 
 }   
 else{
@@ -247,8 +257,7 @@ process publishOutputs {
     // The input variables are outputs in the process. Eg: "segGM" is listed spinalcordsegmentation.process.output. Again, order matters.
     input:
       tuple val(sid), \
-      file(T2wSeg), \
-      file(T2wSegLabeled)
+      file(T2w)
 
     // This is where the files will be dropped. Mode move indicates that 
     // the files will be moved (alternatives are copying or symlinking)
@@ -259,8 +268,7 @@ process publishOutputs {
     // Output mirrors input as we are simply moving files.
     output:
       tuple val(sid), \
-      file(T2wSeg), \
-      file(T2wSegLabeled)
+      file(T2w)
 
     // Generate derivatives folder
     script:
@@ -277,8 +285,10 @@ variable.
 */
 
 // Include T2_Segment_SpinalCord process from spinalcord_segmentation module.
-include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation' addParams(qcDir: params.qcDir)
-include { T2_Vertebral_Labeling } from './modules/spinalcord_vertebral_labeling' addParams(qcDir: params.qcDir)
+include { SpinalCord } from './modules/spinalcord' addParams(qcDir: params.qcDir)
+// include { T2_Segment_SpinalCord } from './modules/spinalcord_segmentation' addParams(qcDir: params.qcDir)
+// include { T1_Segment_SpinalCord } from './modules/spinalcord_segmentation' addParams(qcDir: params.qcDir)
+// include { T1_Vertebral_Labeling } from './modules/spinalcord_vertebral_labeling' addParams(qcDir: params.qcDir)
 
 // >>>>>>>>>>>>>>>>> WORKFLOW DESCRIPTION START <<<<<<<<<<<<<<<<<<
 workflow {
@@ -287,23 +297,31 @@ workflow {
 // relevant process. 
 // MTS_Align_SpinalCord(mtsat_for_alignment)
 
+SpinalCord(SubjectID)
+
+to_publish = SpinalCord.out.publish_spinalcord
 // Collect outputs emitted by publish_spinal_mtsat channel. 
 // CONVENTION: process_name.out.emit_channel_name
 // mtsat_from_alignment = MTS_Align_SpinalCord.out.publish_spinal_mtsat
 
 // Same for segmenting T2w 
-T2_Segment_SpinalCord(T2w.Nii)
+// T2_Segment_SpinalCord(T2w.Nii)
 // to_be_published = T2_Segment_SpinalCord.out.publish_spinal_seg
-masks_from_segmentation = T2_Segment_SpinalCord.out.publish_spinal_seg
-T2w.Nii
-  .join(masks_from_segmentation)
-  .set{inputs_for_vertebral_labeling}
-
-T2_Vertebral_Labeling(inputs_for_vertebral_labeling)
-labels_from_labeling = T2_Vertebral_Labeling.out.publish_spinal_seg
-masks_from_segmentation
-  .join(labels_from_labeling)
-  .set{to_be_published}
+// segmentation_on_t2 = T2_Segment_SpinalCord.out.publish_spinal_seg
+// 
+// T1_Segment_SpinalCord(T1w.Nii)
+// segmentation_on_t1 = T1_Segment_SpinalCord.out.publish_spinal_seg
+// T1w.Nii
+//   .join(segmentation_on_t1)
+//   .set{inputs_for_vertebral_labeling}
+// 
+// T1_Vertebral_Labeling(inputs_for_vertebral_labeling)
+// vertebral_labeling = T1_Vertebral_Labeling.out.publish_spinal_seg
+// 
+// segmentation_on_t2
+//   .join(segmentation_on_t1)
+//   .join(vertebral_labeling)
+//   .set{to_be_published}
 
 // Join channels
 // mtsat_from_alignment 
@@ -311,5 +329,5 @@ masks_from_segmentation
 //     .set {publish}
 
 // Move files from work directory to where we'd like to find them (derivatives).
-publishOutputs(to_be_published)
+publishOutputs(to_publish)
 }
