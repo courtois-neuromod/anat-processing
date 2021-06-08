@@ -140,7 +140,7 @@ if [[ ! -f "participants.tsv" ]]; then
 fi
 # Copy source images
 mkdir -p $SUBJECT
-rsync -avzh $PATH_DATA/$SUBJECT_SESSION $SUBJECT/
+rsync -avzh --copy-links $PATH_DATA/$SUBJECT_SESSION $SUBJECT/
 # Go to anat folder where all structural data are located
 cd ${SUBJECT_SESSION}/anat/
 
