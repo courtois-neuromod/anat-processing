@@ -226,22 +226,20 @@ sct_extract_metric -i mtr.nii.gz -f label_MTS/atlas -l 51 -vert 2:5 -vertfile la
 sct_extract_metric -i mtsat.nii.gz -f label_MTS/atlas -l 51 -vert 2:5 -vertfile label_MTS/template/PAM50_levels.nii.gz -o ${PATH_RESULTS}/MTsat.csv -append 1
 sct_extract_metric -i t1map.nii.gz -f label_MTS/atlas -l 51 -vert 2:5 -vertfile label_MTS/template/PAM50_levels.nii.gz -o ${PATH_RESULTS}/T1.csv -append 1
 
-# # T2s
-# # ------------------------------------------------------------------------------
-# file_t2s="${SUBJECT}_T2star"
-# # Compute root-mean square across 4th dimension (if it exists), corresponding to all echoes in Philips scans.
-# sct_maths -i ${file_t2s}.nii.gz -rms t -o ${file_t2s}_rms.nii.gz
-# file_t2s="${file_t2s}_rms"
-# # Bring vertebral level into T2s space
-# sct_register_multimodal -i label_T1w/template/PAM50_levels.nii.gz -d ${file_t2s}.nii.gz -o PAM50_levels2${file_t2s}.nii.gz -identity 1 -x nn
-# # Segment gray matter (only if it does not exist)
-# segment_gm_if_does_not_exist $file_t2s "t2s"
-# file_t2s_seg=$FILESEG
-# # Compute the gray matter CSA between C3 and C4 levels
-# # NB: Here we set -no-angle 1 because we do not want angle correction: it is too
-# # unstable with GM seg, and t2s data were acquired orthogonal to the cord anyways.
-# sct_process_segmentation -i ${file_t2s_seg}.nii.gz -angle-corr 0 -vert 3:4 -vertfile PAM50_levels2${file_t2s}.nii.gz -o ${PATH_RESULTS}/csa-GM_T2s.csv -append 1
-# 
+# T2s
+# ------------------------------------------------------------------------------
+# TODO: When https://github.com/courtois-neuromod/anat/issues/10 is fixed, we should replace _T2starmap by _T2starw
+file_t2s="${SUBJECT}_bp-cspine_T2starmap"
+# Bring vertebral level into T2s space
+sct_register_multimodal -i label_T2w/template/PAM50_levels.nii.gz -d ${file_t2s}.nii.gz -o PAM50_levels2${file_t2s}.nii.gz -identity 1 -x nn
+# Segment gray matter (only if it does not exist)
+segment_gm_if_does_not_exist $file_t2s "t2s"
+file_t2s_seg=$FILESEG
+# Compute the gray matter CSA between C3 and C4 levels
+# NB: Here we set -no-angle 1 because we do not want angle correction: it is too
+# unstable with GM seg, and t2s data were acquired orthogonal to the cord anyways.
+sct_process_segmentation -i ${file_t2s_seg}.nii.gz -angle-corr 0 -vert 3:4 -vertfile PAM50_levels2${file_t2s}.nii.gz -o ${PATH_RESULTS}/csa-GM_T2s.csv -append 1
+
 # # DWI
 # # ------------------------------------------------------------------------------
 # file_dwi="${SUBJECT}_dwi"
