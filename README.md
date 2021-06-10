@@ -1,7 +1,7 @@
 # anat-processing
 Pipeline to process anatomical data, including microstructure metrics from DWI and MT data
 
-## How to run the pipeline
+## Download the data
 
 ### Get `s3_access_key` and `s3_secret_key` 👉 contact Basile.
 Then, set them:
@@ -10,12 +10,18 @@ export AWS_ACCESS_KEY_ID=<s3_access_key>
 export AWS_SECRET_ACCESS_KEY=<s3_secret_key>
 ```
 
-### Get the data:
+### Get the data
 ```bash
 datalad install -r git@github.com:courtois-neuromod/anat.git
 cd anat
 datalad get .
 ```
+
+## Install requirements
+
+The requirements for this pipeline include:
+- Nextflow and Docker for brain data analysis
+- SCT for spinal cord data analysis
 
 ### Install Nextflow
 1. Make sure that java `8` or later is installed
@@ -45,15 +51,20 @@ docker pull qmrlab/antsfsl:latest
 
 > If you are an OSX user and manually configured Docker to run in a virtual machine, please make sure that your `/Users` folder is mounted into the Docker VM. If you installed Docker using the [Desktop Installer](https://docs.docker.com/docker-for-mac/install/), this is automatically configured. 
 
-### Run pipeline
+### Install Spinal Cord Toolbox
 
-#### Simplest use case
+See [SCT installation instructions](https://spinalcordtoolbox.com/en/latest/user_section/installation.html). 
+
+
+## Run brain analysis pipeline
+
+### Simplest use case
 
 ```bash
 nextflow run neuromod-process-anat.nf --bids /path/to/courtois-neuromod/directory -with-report report.html
 ```
 
-##### What are those files appeared in the source directory? 
+### What are those files appeared in the source directory? 
 
 Upon invocation within a directory (in this case it is where you cloned `neuromod/anat-processing`), nextflow creates a 
 set of project specific files/folders to cache outputs with detailed provenance recording: 
@@ -66,7 +77,7 @@ set of project specific files/folders to cache outputs with detailed provenance 
 All these files are gitignored, so you are not likely to push any of these files by mistake. However, you can change the location 
 where these outputs are saved to keep the source directory clean.
 
-#### Managing work directory and cleaning Nextflow files after a run
+### Managing work directory and cleaning Nextflow files after a run
 
 Using the following nextflow arguments, you can configure where the interim files will be stored:
 
@@ -106,7 +117,7 @@ nextflow clean mnemonic_name -f
 Note that if you delete these files and would like to [resume nextflow after an interrupted run](https://www.nextflow.io/blog/2019/demystifying-nextflow-resume.html) you won't be able to 
 recover the processed files. 
 
-#### Datalad 
+### Datalad 
 
 You can invoke the nextflow pipeline using `datalad` so that the process appears in dataset history:
 
@@ -151,8 +162,6 @@ out of memory and fail to proceed. Note that this allocation affects performance
 
 You can use [any of these available executors](https://www.nextflow.io/docs/latest/executor.html).
 
-
-
 ### Notes 
 
 - By default, this workflow is configured to work with multiple containers. However, you can edit `nextflow.config` for a select 
@@ -161,3 +170,16 @@ process to run locally. In that case, you need to make sure that all the depende
 - A `subject/session` process will be omitted if any of the configured inputs are missing for that `subject/session`. For example, 
 if you set `use_b1cor=true` the whole process will be skipped for a `subject/session` missing `../fmap/...B1plusmap.nii.gz`. This ensures that 
 all the derivatives are processed uniformly.
+
+## Run spinal cord analysis pipeline
+
+```
+sct_run_batch -path-data <PATH_NEUROMOD_DATA> -path-output <PATH_OUTPUT> -job <NUM_CPU_CORE> -script process_spinalcord.sh
+```
+
+To test the pipeline in one subject, run:
+```
+sct_run_batch -path-data <PATH_NEUROMOD_DATA> -path-output <PATH_OUTPUT> -script process_spinalcord.sh -include sub-01/ses-001
+```
+
+For more available options, run `sct_run_batch -h`
