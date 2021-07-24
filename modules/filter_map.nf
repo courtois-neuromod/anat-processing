@@ -4,14 +4,14 @@ process smoothB1WithMask {
     tag { sid }
      
     when:
-        params.use_b1cor == true && params.use_bet == true
+        params.use_bet == true
 
     input:
         tuple val(sid), file(b1aligned), file(mask)
 
     output:
         tuple val(sid), path("${sid}_TB1map.nii.gz"), path("${sid}_TB1map.json"), \
-        optional: true, emit: b1_filtered_w_mask
+        optional: true, emit: b1_filtered
 
     script: 
         if (params.matlab_path_exception){
@@ -29,41 +29,27 @@ process smoothB1WithMask {
 
 process smoothB1WithoutMask {
     tag { sid }
-
-    if (!params.matlab_path_exception){
-    container 'qmrlab/minimal:v2.3.1'
-    }
-
+     
     when:
-        params.use_b1cor == true && params.use_bet == false
+        params.use_bet == false
 
     input:
         tuple val(sid), file(b1aligned)
-    
-    output:
-        tuple val(sid), path("${sid}_B1plusmap_filtered.nii.gz"), path("${sid}_B1plusmap_filtered.json"), \
-        optional: true, emit: b1_filtered_wo_mask
-        
-    script:
-    if (params.matlab_path_exception){
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
 
-            $params.matlab_path_exception -nodesktop -nosplash -r "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned','type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path_exception','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
+    output:
+        tuple val(sid), path("${sid}_TB1map.nii.gz"), path("${sid}_TB1map.json"), \
+        optional: true, emit: b1_filtered
+
+    script: 
+        if (params.matlab_path_exception){
+        """
+            $params.matlab_path_exception -nodesktop -nosplash -r "filter_map_neuromod('${sid}','$b1aligned','type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path_exception','siemens',$params.b1_filter_siemens); exit();" 
         """
         }else{
         """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-            
-            $params.runcmd "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned', 'type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
+            $params.runcmd "filter_map_neuromod('${sid}','$b1aligned','type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path_exception','siemens',$params.b1_filter_siemens); exit();" 
         """
 
-    }
+        }
 
 }

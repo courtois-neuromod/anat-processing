@@ -1,9 +1,7 @@
 #!/usr/bin/env nextflow
 
 /*
-This workflow contains pre- and post-processing steps to 
-calculate Magnetization Transfer Saturation Index (MTsat) map along
-with a longitudinal relaxation time (T1) map.
+WIP DSL2 workflow for Neuromod anat processing.
 
 Dependencies: 
     These dependencies must be installed if Docker is not going
@@ -15,7 +13,7 @@ Dependencies:
 
 Docker: 
         - https://hub.docker.com/u/qmrlab
-        - qmrlab/minimal:v2.3.1
+        - qmrlab/minimal:v2.5.0b
         - qmrlab/antsfsl:latest
 
 Author:
@@ -25,9 +23,20 @@ Author:
 Users: Please see USAGE for further details
  */
 
+
 /*Set defaults for parameters determining logic flow to false*/
+nextflow.enable.dsl=2
+include { getSubSesEntity; checkSesFolders } from './modules/bids_patterns'
+
 params.bids = false 
 params.help = false
+
+log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
+log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
+log.info " #  #  # #####  #    # #    # #    # # ## # #    # #    # "
+log.info " #   # # #      #    # #####  #    # #    # #    # #    # "
+log.info " #    ## #      #    # #   #  #    # #    # #    # #    # "
+log.info " #     # ######  ####  #    #  ####  #    #  ####  #####  "
 
 /* Call to the mt_sat_wrapper.m will be invoked by params.runcmd.
 Depending on the params.platform selection, params.runcmd 
@@ -65,6 +74,7 @@ workflow.onComplete {
     log.info "Pipeline completed at: $workflow.complete"
     log.info "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
     log.info "Execution duration: $workflow.duration"
+    log.info "Mnemonic ID: $workflow.runName"
 }
 
 /*Define bindings for --help*/
@@ -100,522 +110,347 @@ if(params.help) {
     return
 }
 
-/*Scrape file names from a BIDS-compatible dataset
-Note:
-    BIDS for qMRI is currently under development (BEP001,https://github.com/bids-standard/bep001)
-    The current format is valid as of late 2019 and subjected to change.
-    For B1plusmaps, there is not a specification yet. To circumvent this 
-    issue, these (optional) maps are assumed to be located at the fmap
-    folder with _B1plusmap suffix.   
-*/
+entity = checkSesFolders()
+
 if(params.bids){
     log.info "Input: $params.bids"
     bids = file(params.bids)
-    
-    /* ==== BIDS: MTSat inputs ==== */  
-    /* Here, alphabetical indexes matter. Therefore, MToff -> MTon -> T1w */
-    in_data = Channel
-        .fromFilePairs("$bids/**/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
-    (pdw, mtw, t1w) = in_data
-        .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
-                                            tuple(sid, MTon),
-                                            tuple(sid, T1w)]}                                   
-        .separate(3)
+    derivativesDir = "$params.qmrlab_derivatives"
+    log.info "Derivatives: $params.qmrlab_derivatives"
+    log.info "Nextflow Work Dir: $workflow.workDir"
 
-    in_data = Channel
-        .fromFilePairs("$bids/**/**/anat/sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
-    (pdwj, mtwj, t1wj) = in_data
-        .map{sid, MToff, MTon, T1w  -> [    tuple(sid, MToff),
-                                            tuple(sid, MTon),
-                                            tuple(sid, T1w)]}                                   
-        .separate(3)    
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        .multiMap {sid, MToff, MTon, T1w ->
+        PDw: tuple(sid, MToff)
+        MTw: tuple(sid, MTon)
+        T1w: tuple(sid, T1w)
+        }
+        .set {niiMTS}
+    
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
+        .multiMap {sid, MToff, MTon, T1w ->
+        PDw: tuple(sid, MToff)
+        MTw: tuple(sid, MTon)
+        T1w: tuple(sid, T1w)
+        }
+        .set {jsonMTS}
+
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.nii.gz", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {niiMP2RAGE}
+
+    Channel
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_UNIT1.json", maxDepth: 3, size: 1, flat: true)
+        .multiMap { it -> UNIT1: it }
+        .set {jsonMP2RAGE}
+
 
     /* ==== BIDS: B1 map ==== */             
+    /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
-    b1_data = Channel
+    Channel
            .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
-           .set {b1raw}
-    //(b1raw) = b1_data       
-     //      .map{sid, B1plusmap -> [tuple(sid, B1plusmap)]}     
-     //      .separate(1)
+           .multiMap { it -> AngleMap: it }
+           .set {B1}
+
+    Channel
+    .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_ses-*_T1w.nii.gz", maxDepth:3, size:1, flat:true)
+    .multiMap { it -> Nii: it}
+    .set {T1wHighRes}
+
+    Channel
+    .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_inv-2_MP2RAGE.nii.gz", maxDepth: 3, size: 1, flat: true)
+    .multiMap { it -> Nii: it }
+    .set {inv2}
 }   
 else{
     error "ERROR: Argument (--bids) must be passed. See USAGE."
 }
 
-/*Each data type is defined as a channel. To pass all the channels 
-  to the same process accurately, these channels must be joined. 
-*/ 
+// First, join nii & json pairs with explicit notations 
+// provided by the multimap
+niiMTS.PDw
+   .join(jsonMTS.PDw)
+   .set {pairPDw}
 
-/*Split T1w into three channels
-    t1w_pre_ch1 --> mtsat_for_alignment
-    t1w_pre_ch2 --> t1w_for_bet
-    t1w_pre_ch3 --> t1w_post
-*/
-t1w.into{t1w_pre_ch1; t1w_for_bet; t1w_post}
+PDw = pairPDw
+        .multiMap { it -> 
+                    Nii: tuple(it[0],it[1])
+                    Json: tuple(it[0],it[2])
+                  }
 
-/* Merge PDw, MTw and T1w for alignment*/
-pdw 
-    .join(mtw)
-    .join(t1w_pre_ch1)
+niiMTS.MTw
+   .join(jsonMTS.MTw)
+   .set {pairMTw}
+
+MTw = pairMTw
+        .multiMap { it -> 
+                    Nii: tuple(it[0],it[1]) 
+                    Json: tuple(it[0],it[2])
+                    }
+
+niiMTS.T1w
+   .join(jsonMTS.T1w)
+   .set {pairT1w}
+
+T1w = pairT1w
+        .multiMap { it -> 
+                    Nii:  tuple(it[0],it[1]) 
+                    Json: tuple(it[0],it[2])
+                    }
+
+
+// ================================== IMPORTANT 
+// TUPLE ORDER: PDW --> MTW --> T1W
+// NII --> JSON 
+// CRITICAL TO FOLLOW THE SAME ORDER IN INPUTS
+
+PDw.Nii
+    .join(MTw.Nii)
+    .join(T1w.Nii)
     .set{mtsat_for_alignment}
 
-log.info "qMRflow: MTsat pipeline"
-log.info "======================="
-log.info ""
+niiMP2RAGE.UNIT1
+    .join(jsonMP2RAGE.UNIT1)
+    .set{pairMP2RAGE}
 
-log.info  "##    # ###### #    # #####   ####  #    #  ####  #####  "
-log.info " # #   # #      #    # #    # #    # ##  ## #    # #    # "
-log.info " #  #  # #####  #    # #    # #    # # ## # #    # #    # "
-log.info " #   # # #      #    # #####  #    # #    # #    # #    # "
-log.info " #    ## #      #    # #   #  #    # #    # #    # #    # "
-log.info " #     # ######  ####  #    #  ####  #    #  ####  #####  "
-log.info ""
-log.info "Start time: $workflow.start"
-log.info ""
-log.info ""
-log.info "DATA"
-log.info "===="
-log.info ""
-log.info "BIDS option has been enabled."
-log.warn "qMRI protocols will be read from sidecar .json files for MTSAT and MTR."
-log.warn "Some protocols for MP2RAGE are hardcoded."
-log.info ""
-log.info "OPTIONS"
-log.info "======="
-log.info ""
-log.info "[GLOBAL]"
-log.info "---------------"
-log.info "Selected platform: $params.platform"
-log.info "BET enabled: $params.use_bet"
-log.info "B1+ correction enabled: $params.use_b1cor"
-log.info ""
-log.info "[ANTs Registration]"
-log.info "-------------------"
-log.info "Dimensionality: $params.ants_dim"
-log.info "Metric: $params.ants_metric"
-log.info "Weight: $params.ants_metric_weight"
-log.info "Number of bins: $params.ants_metric_bins"
-log.info "Sampling type: $params.ants_metric_sampling"
-log.info "Sampling percentage: $params.ants_metric_samplingprct"
-log.info "Transform: $params.ants_transform"
-log.info "Convergence: $params.ants_convergence"
-log.info "Shrink factors: $params.ants_shrink"
-log.info "Smoothing sigmas: $params.ants_smoothing"
-log.info ""
-log.info "[FSL BET]"
-log.info "---------------"
-log.info "Enabled: $params.use_bet"
-log.info "Fractional intensity threshold: $params.bet_threshold"
-log.info "Robust brain center estimation: $params.bet_recursive"
-log.info ""
-log.info "[qMRLab mt_sat]"
-log.info "---------------"
-log.warn "Acquisition protocols will be read from  sidecar .json files (BIDS)."
-if (params.use_b1cor){
-log.info "B1+ correction has been ENABLED."  
-log.warn "Process will be skipped for participants missing a B1map file."   
-log.info "B1 correction factor: $params.b1cor_factor"}
-if (!params.use_b1cor){
-log.info "B1+ correction has been DISABLED."
-log.warn "Process will NOT take any (possibly) existing B1maps into account."
-}
-log.info ""
-log.info "======================="
+T1wHighRes.Nii
+    .join(niiMTS.T1w)
+    .join(inv2.Nii)
+    .set{segInputs}
 
-/*Perform rigid registration to correct for head movement across scans:
-    - MTw (moving) --> T1w (fixed)
-    - PDw (moving) --> T1w (fixed)
-*/     
+process publishOutputs {
 
-process Align_Input_Volumes {
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+    exec:
+        out = getSubSesEntity("${sid}")
 
     input:
-        tuple val(sid), file(pdw), file(mtw), file(t1w) from mtsat_for_alignment
+      tuple val(sid), \
+      path(mtw_aligned), path(pdw_aligned), \
+      path(mtw_disp), path(pdw_disp), \
+      path(t1map), path(mtsat), path(t1mapj), \
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
+
+    publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'copy', overwrite: true
 
     output:
-        tuple val(sid), "${sid}_acq-MTon_MTS_aligned.nii.gz", "${sid}_acq-MToff_MTS_aligned.nii.gz"\
-        into mtsat_from_alignment
-        file "${sid}_acq-MTon_MTS_aligned.nii.gz"
-        file "${sid}_acq-MToff_MTS_aligned.nii.gz"
-        file "${sid}_mtw_to_t1w_displacement.*.mat"
-        file "${sid}_pdw_to_t1w_displacement.*.mat"
+      tuple val(sid), \
+      path(mtw_aligned), path(pdw_aligned), \
+      path(mtw_disp), path(pdw_disp), \
+      path(t1map), path(mtsat), path(t1mapj), \
+      path(mtsatj), path(qmrmodel), path(mp2raget1), \
+      path(mp2raget1j),path(mp2rager1),path(mp2rager1j), path(mp2ragemodel), \
+      path(mtrnii), path(mtrjson), path(mtrmodel)
 
     script:
         """
-        antsRegistration -d $params.ants_dim \
-                            --float 0 \
-                            -o [${sid}_mtw_to_t1w_displacement.mat,${sid}_acq-MTon_MTS_aligned.nii.gz] \
-                            --transform $params.ants_transform \
-                            --metric $params.ants_metric[$t1w,$mtw,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
-                            --convergence $params.ants_convergence \
-                            --shrink-factors $params.ants_shrink \
-                            --smoothing-sigmas $params.ants_smoothing
-
-        antsRegistration -d $params.ants_dim \
-                            --float 0 \
-                            -o [${sid}_pdw_to_t1w_displacement.mat,${sid}_acq-MToff_MTS_aligned.nii.gz] \
-                            --transform $params.ants_transform \
-                            --metric $params.ants_metric[$t1w,$pdw,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
-                            --convergence $params.ants_convergence \
-                            --shrink-factors $params.ants_shrink \
-                            --smoothing-sigmas $params.ants_smoothing
+        mkdir -p ${derivativesDir}
+        echo "Transferring ${mtw_aligned} to ${derivativesDir}/${out.sub}/${out.ses}anat folder..."
         """
 }
 
+process publishOutputsFmap {
 
-process Extract_Brain{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
-
-    when:
-        params.use_bet == true
+    exec:
+        out = getSubSesEntity("${sid}")
 
     input:
-        tuple val(sid), file(t1w) from t1w_for_bet
+      tuple val(sid), \
+      path(b1res), path(smooth)
+
+    publishDir "${derivativesDir}/${out.sub}/${out.ses}fmap", mode: 'copy', overwrite: true
 
     output:
-        tuple val(sid), "${sid}_acq-T1w_mask.nii.gz" optional true into mask_from_bet
-        file "${sid}_acq-T1w_mask.nii.gz"
+      tuple val(sid), \
+      path(b1res),path(smooth)
 
     script:
-         if (params.bet_recursive){
-        """    
-        bet $t1w ${sid}_acq-T1w.nii.gz -m -R -n -f $params.bet_threshold
-        """}
-        else{
-        """    
-        bet $t1w ${sid}_acq-T1w.nii.gz -m -n -f $params.bet_threshold
         """
+        mkdir -p ${derivativesDir}
+        """
+}
+
+process publishOutputsMasks {
+
+    exec:
+        out = getSubSesEntity("${sid}")
+
+    input:
+      tuple val(sid), \
+      path(mtsgm), path(mtswm), \
+      path(mp2ragegm), path(mp2ragewm)
+
+    publishDir "${derivativesDir}/${out.sub}/${out.ses}anat", mode: 'copy', overwrite: true
+
+    output:
+      tuple val(sid), \
+      path(mtsgm), path(mtswm), \
+      path(mp2ragegm), path(mp2ragewm)
+
+    script:
+        """
+        mkdir -p ${derivativesDir}
+        """
+}
+
+include { alignMtsatInputs; resampleB1; generateRegionMasks } from './modules/ants'
+include { extractBrain } from './modules/fsl'
+include { smoothB1WithMask; smoothB1WithoutMask } from './modules/filter_map' addParams(runcmd: params.runcmd)
+include { fitMtsatWithB1Mask; fitMtsatWithB1; fitMtsatWithBet; fitMtsat} from './modules/mt_sat' addParams(runcmd: params.runcmd)
+include { fitMp2rageUni} from './modules/mp2rage' addParams(runcmd: params.runcmd)
+include { fitMtratio} from './modules/mt_ratio' addParams(runcmd: params.runcmd)
+
+
+workflow {
+
+fitMp2rageUni(pairMP2RAGE)
+
+publish_mp2rage = fitMp2rageUni.out.mp2rage_output
+// EXECUTE PROCESS (tuple order: sid, pdw, mtw, t1w)
+alignMtsatInputs(mtsat_for_alignment)
+
+// Get aligned images (tuple order: sid, pdw, mtw, pdwdisp, mtwdisp)
+mtsat_from_alignment = alignMtsatInputs.out.mtsat_from_alignment
+
+// All these files will be eventually published, but we need a subsample of them
+// to proceed with the workflow, which are first 3 tuple elements (sid, pdw, mtw)
+mtsat_from_alignment
+        .multiMap{it ->
+        Publish: it
+        Fit: tuple(it[0],it[1],it[2])
+        Mtr: tuple(it[0],it[1],it[2])
         }
+        .set {Aligned}
 
-}
+// EXECUTE PROCESS (tuple order: sid, t1w)
+extractBrain(T1w.Nii)
 
-/* Split t1w_post into two to deal with B1map cases */
-t1w_post.into{t1w_post_ch1;t1w_post_ch2; t1w_post_ch3}
+mask_from_bet = extractBrain.out.mask_from_bet
 
-/* Split mtsat_from_alignment into two to deal with B1map cases */
-mtsat_from_alignment.into{mfa_ch1;mfa_ch2}
-
-/* There is no input optional true concept in nextflow
-The process consuming the individual input channels will 
-only execute if the channel is populated.
-*/
-
-/* We need to conditionally create channels with
-input data or as empty channels.
-*/
 if (!params.use_bet){
     Channel
         .empty()
         .set{mask_from_bet}
 }
 
-/* Split mask_from_bet into two to deal with B1map cases later. */
-mask_from_bet.into{mask_from_bet_ch1;mask_from_bet_ch2;mask_from_bet_ch3}
+// Clone
+Mask = mask_from_bet
+            //.multiMap { it -> Split1: Split2: Split3: it }
 
-t1wj.into{t1wj_ch1;t1wj_ch2}
-pdwj.into{pdwj_ch1;pdwj_ch2}
-mtwj.into{mtwj_ch1;mtwj_ch2}
-
-t1w_post_ch3
-    .join(b1raw)
+// Join channels by tuple index for resampling b1+ map (ref t1w)
+T1w.Nii
+    .join(B1.AngleMap)
     .set{b1_for_alignment}
 
-/* For now, just use identity transform (i.e. upsample w/o additional transformation).*/
+// Process val(sid), file(t1w), file(b1raw)
+resampleB1(b1_for_alignment)
 
-process B1_Align{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+// Collect output
+b1_resampled = resampleB1.out.b1_resampled
 
-    when:
-        params.use_b1cor == true
-
-    input:
-        tuple val(sid), file(t1w), file(b1raw) from b1_for_alignment
-        
-
-    output:
-        tuple val(sid), "${sid}_B1plusmap_aligned.nii.gz" optional true into b1_aligned
-        file "${sid}_B1plusmap_aligned.nii.gz"
-
-    script:
-        """
-        antsApplyTransforms -d 3 -e 0 -i $b1raw \
-                            -r $t1w \
-                            -o ${sid}_B1plusmap_aligned.nii.gz \
-                            -t identity
-        """
-
-}
-
+// Create empty channel as b1_resampled output is optional.
 if (!params.use_b1cor){
     Channel
         .empty()
-        .set{b1_aligned}
+        .set{b1_resampled}
 }
 
-b1_aligned.into{b1_aligned_ch1;b1_for_smooth_without_mask}
 
-b1_aligned_ch1
-   .join(mask_from_bet_ch3)
-   .set{b1_for_smooth_with_mask}
-            
-process B1_Smooth_With_Mask{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+// Join channels for smoothing with map
+b1_resampled
+    .join(Mask)
+    .set {b1_for_smoothing_with_mask}
 
-    if (!params.matlab_path_exception){
-    container 'qmrlab/minimal:v2.3.1'
-    }
-    
-    when:
-        params.use_b1cor == true && params.use_bet == true
+// EXECUTE PROCESS (tuple order: sid, b1, mask)
+smoothB1WithMask(b1_for_smoothing_with_mask)
 
-    input:
-        tuple val(sid), file(b1aligned), file(mask) from b1_for_smooth_with_mask
+// Collect ouputs
+b1_filtered = smoothB1WithMask.out.b1_filtered
+                        .multiMap{it->
+                        Publish: it
+                        Nii: tuple(it[0],it[1])
+                        }
 
-    output:
-        tuple val(sid), "${sid}_B1plusmap_filtered.nii.gz" optional true into b1_filtered_w_mask 
-        file "${sid}_B1plusmap_filtered.nii.gz"
-        file "${sid}_B1plusmap_filtered.json"
+// EXECUTE PROCESS (tuple order: sid, b1)
+smoothB1WithoutMask(b1_resampled)
 
-    script: 
-        if (params.matlab_path_exception){
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
+// Collect ouputs
+b1_filtered = smoothB1WithoutMask.out.b1_filtered
+                        .multiMap{it->
+                        Publish: it
+                        Nii: tuple(it[0],it[1])
+                        }
 
-            $params.matlab_path_exception -nodesktop -nosplash -r "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned', 'mask', '$mask', 'type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path_exception','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
-        """
-        }else{
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.runcmd "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned', 'mask', '$mask', 'type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
-        """
-
-        }
-
-}
-
-process B1_Smooth_Without_Mask{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
-
-    container 'qmrlab/minimal:v2.3.1'
-
-    when:
-        params.use_b1cor == true && params.use_bet == false
-
-    input:
-        tuple val(sid), file(b1aligned) from b1_for_smooth_without_mask
-    
-    output:
-        tuple val(sid), "${sid}_B1plusmap_filtered.nii.gz" optional true into b1_filtered_wo_mask 
-        file "${sid}_B1plusmap_filtered.nii.gz"
-        file "${sid}_B1plusmap_filtered.json"
-        
-    script:
-    if (params.matlab_path_exception){
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.matlab_path_exception -nodesktop -nosplash -r "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned','type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path_exception','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
-        """
-        }else{
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-            
-            $params.runcmd "addpath(genpath('qMRWrappers')); filter_map_wrapper('$b1aligned', 'type','$params.b1_filter_type','order',$params.b1_filter_order,'dimension','$params.b1_filter_dimension','size',$params.b1_filter_size,'qmrlab_path','$params.qmrlab_path','siemens','$params.b1_filter_siemens', 'sid','${sid}'); exit();" 
-        """
-
-    }
-
-}
-
+// Join data channels based on parameter selection
+// Fit with B1 
 if (params.use_bet){
-/*Merge tw1_post with mtsat_from_alignment and b1plus.*/
-t1w_post_ch1
-    .join(mfa_ch1)
-    .join(b1_filtered_w_mask)
-    .join(t1wj_ch1)
-    .join(mtwj_ch1)
-    .join(pdwj_ch1)
-    .set{mtsat_for_fitting_with_b1}
+
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .join(b1_filtered.Nii)
+    .set{fitting_with_b1}
+
 }else{
-t1w_post_ch1
-    .join(mfa_ch1)
-    .join(b1_filtered_wo_mask)
-    .join(t1wj_ch1)
-    .join(mtwj_ch1)
-    .join(pdwj_ch1)
-    .set{mtsat_for_fitting_with_b1}
 
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .join(b1_filtered.Nii)
+    .set{fitting_with_b1}
 }
 
 
+// Fit without B1 map channel 
+Aligned.Fit
+    .join(T1w.Nii)
+    .join(PDw.Json)
+    .join(MTw.Json)
+    .join(T1w.Json)
+    .set{mtsat_fitting_without_b1}
 
-mtsat_for_fitting_with_b1.into{mtsat_with_b1_bet;mtsat_with_b1}
+mtsat_fitting_without_b1
+    .join(Mask)
+    .set{ fitting_without_b1_bet}
 
-/*Merge tw1_post with mtsat_from_alignment only.
-WITHOUT B1 MAP
-*/
-t1w_post_ch2
-    .join(mfa_ch2)
-    .join(t1wj_ch2)
-    .join(mtwj_ch2)
-    .join(pdwj_ch2)
-    .set{mtsat_for_fitting_without_b1}
+fitting_with_b1
+    .join(Mask)
+    .set{mtsat_with_b1_bet}
 
-mtsat_for_fitting_without_b1.into{mtsat_without_b1_bet;mtsat_without_b1}
+fitMtsatWithB1Mask(mtsat_with_b1_bet)
 
-/* We need to join these channels to avoid problems.
-WITH B1 MAP
-*/
-mtsat_with_b1_bet
-    .join(mask_from_bet_ch1)
-    .set{mtsat_with_b1_bet_merged}
+fitMtsatWithB1(fitting_with_b1)
 
-/* Depeding on the nextflow.config 
-settings for use_b1cor and use_bet, one of th
-following 4 processes will be executed. 
-*/
+fitMtsatWithBet(fitting_with_b1)
 
-process Fit_MTsat_With_B1map_With_Bet{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+fitMtsat(mtsat_fitting_without_b1)
 
-    when:
-        params.use_b1cor == true && params.use_bet == true
+// Fit MTR
+fitMtratio(Aligned.Mtr)
 
-    input:
-        tuple val(sid), file(t1w), file(mtw_reg), file(pdw_reg),\
-        file(b1map), file(t1wj), file(mtwj), file(pdwj), file(mask) from mtsat_with_b1_bet_merged
-        
-    output:
-        file "${sid}_T1map.nii.gz" 
-        file "${sid}_MTsat.nii.gz"
-        file "${sid}_T1map.json" 
-        file "${sid}_MTsat.json"  
-        file "${sid}_mt_sat.qmrlab.mat"
+Aligned.Publish
+    .join(fitMtsatWithB1.out.publish_mtsat)
+    .join(publish_mp2rage)
+    .join(fitMtratio.out.mtratio_output)
+    .set {publish}
 
-    script: 
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
+b1_resampled
+   .join(b1_filtered.Nii)
+   .set{publishfmap}
 
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','mask','$mask','b1map','$b1map','b1factor',$params.b1cor_factor,'qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
-        """
-}
+generateRegionMasks(segInputs)
 
-process Fit_MTsat_With_B1map_Without_Bet{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
+publishOutputs(publish)
+publishOutputsFmap(publishfmap)
+publishOutputsMasks(generateRegionMasks.out.region_masks)
 
-    when:
-        params.use_b1cor == true && params.use_bet == false
-
-    input:
-        tuple val(sid), file(t1w), file(mtw_reg), file(pdw_reg),\
-        file(b1map), file(t1wj), file(mtwj), file(pdwj) from mtsat_with_b1
-
-    output:
-        file "${sid}_T1map.nii.gz" 
-        file "${sid}_MTsat.nii.gz" 
-        file "${sid}_T1map.json" 
-        file "${sid}_MTsat.json" 
-        file "${sid}_mt_sat.qmrlab.mat"
-
-    script: 
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','b1map','$b1map','b1factor',$params.b1cor_factor,'qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
-        """
-               
-}
-
-
-/* We need to join these channels to avoid problems.*/
-mtsat_without_b1_bet
-    .join(mask_from_bet_ch2)
-    .set{mtsat_without_b1_bet_merged}
-
-process Fit_MTsat_Without_B1map_With_Bet{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
-    
-    when:
-        params.use_b1cor == false && params.use_bet==true
-
-    input:
-        tuple val(sid), file(t1w), file(mtw_reg), file(pdw_reg),\
-        file(t1wj), file(mtwj), file(pdwj), file(mask) from mtsat_without_b1_bet_merged
-
-    output:
-        file "${sid}_T1map.nii.gz" 
-        file "${sid}_MTsat.nii.gz" 
-        file "${sid}_T1map.json" 
-        file "${sid}_MTsat.json" 
-        file "${sid}_mt_sat.qmrlab.mat"
-
-    script: 
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','mask','$mask','qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
-        """
-}
-
-process Fit_MTsat_Without_B1map_Without_Bet{
-    tag "${sid}"
-    publishDir "$bids/derivatives/qMRLab/${sid}", mode: 'copy'
-    programVersion = '2.7.3-beta'
-    (full, major, minor, patch, flavor) = (programVersion =~ /(\d+)\.(\d+)\.(\d+)-?(.+)/)[0]
-
-    when:
-        params.use_b1cor == false && params.use_bet==false
-
-    input:
-        tuple val(sid), file(t1w), file(mtw_reg), file(pdw_reg),\
-        file(t1wj), file(mtwj), file(pdwj) from mtsat_without_b1
-
-    output:
-        file "${sid}_T1map.nii.gz" 
-        file "${sid}_MTsat.nii.gz"
-        file "${sid}_T1map.json" 
-        file "${sid}_MTsat.json"  
-        file "${sid}_mt_sat.qmrlab.mat"
-
-    script: 
-        """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
-        """
 }

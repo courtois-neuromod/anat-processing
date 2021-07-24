@@ -1,8 +1,8 @@
-process fitMtratioWithMask{
+process fitMtratio{
     tag { sid }
 
     input:
-        tuple val(sid), file(pdw_reg), file(mtw_reg), file(mask)
+        tuple val(sid), file(pdw_reg), file(mtw_reg)
         
     output:
         tuple val(sid), \
@@ -13,6 +13,6 @@ process fitMtratioWithMask{
 
     script: 
         """
-            $params.runcmd "mt_ratio_neuromod('${sid}','$mtw_reg','$pdw_reg','mask','$mask'); exit();"
+            $params.runcmd "mt_ratio_neuromod('${sid}','$mtw_reg','$pdw_reg'); exit();"
         """
 }
