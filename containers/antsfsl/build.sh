@@ -1,1 +1,0 @@
-docker build --rm -t qmrlab/antsfsl .
