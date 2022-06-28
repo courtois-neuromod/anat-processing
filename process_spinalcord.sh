@@ -187,9 +187,9 @@ sct_process_segmentation -i ${file_t1_seg}.nii.gz -vert 2:3 -vertfile PAM50_leve
  
 # MTS
 # ------------------------------------------------------------------------------
-file_t1ax="${SUBJECT}_acq-T1w_bp-cspine_MTS"
-file_mton="${SUBJECT}_acq-MTon_bp-cspine_MTS"
-file_mtoff="${SUBJECT}_acq-MToff_bp-cspine_MTS"
+file_t1ax="${SUBJECT}_bp-cspine_flip-2_mt-off_MTS"
+file_mton="${SUBJECT}_bp-cspine_flip-1_mt-on_MTS"
+file_mtoff="${SUBJECT}_bp-cspine_flip-1_mt-off_MTS"
 
 # Segment spinal cord (only if it does not exist)
 segment_if_does_not_exist $file_t1ax "t1"
@@ -228,8 +228,7 @@ sct_extract_metric -i t1map.nii.gz -f label_MTS/atlas -l 51 -vert 2:5 -vertfile 
 
 # T2s
 # ------------------------------------------------------------------------------
-# TODO: When https://github.com/courtois-neuromod/anat/issues/10 is fixed, we should replace _T2starmap by _T2starw
-file_t2s="${SUBJECT}_bp-cspine_T2starmap"
+file_t2s="${SUBJECT}_bp-cspine_T2starw"
 # Bring vertebral level into T2s space
 sct_register_multimodal -i label_T2w/template/PAM50_levels.nii.gz -d ${file_t2s}.nii.gz -o PAM50_levels2${file_t2s}.nii.gz -identity 1 -x nn
 # Segment gray matter (only if it does not exist)
