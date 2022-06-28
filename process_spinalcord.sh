@@ -284,7 +284,7 @@ cd ..
 FILES_TO_CHECK=(
   "anat/${SUBJECT}_T2w_bp-cspine_seg.nii.gz"
   "anat/${SUBJECT}_T1w_seg.nii.gz"
-  "anat/${SUBJECT}_bp-cspine_T2starmap_gmseg.nii.gz"
+  "anat/${SUBJECT}_bp-cspine_T2starw_gmseg.nii.gz"
   "anat/mtr.nii.gz"
   "anat/mtsat.nii.gz"
   "dwi/dti_FA.nii.gz"
