@@ -21,7 +21,7 @@
 set -x
 
 # Immediately exit if error
-set -e -o pipefail
+# set -e -o pipefail
 
 # Exit if user presses CTRL+C (Linux) or CMD+C (OSX)
 trap "echo Caught Keyboard Interrupt within script. Exiting now.; exit" INT
@@ -140,6 +140,8 @@ if [[ ! -f "participants.tsv" ]]; then
   rsync -avzh $PATH_DATA/participants.tsv .
 fi
 # Copy source images
+# Note: the rsync will exit with errors because some symlinks do not have the 
+#  original file, eg; the localizers.
 mkdir -p $SUBJECT
 rsync -avzh --copy-links $PATH_DATA/$SUBJECT_SESSION $SUBJECT/
 # Go to anat folder where all structural data are located
