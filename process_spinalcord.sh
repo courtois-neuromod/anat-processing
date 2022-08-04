@@ -187,9 +187,9 @@ sct_process_segmentation -i ${file_t1_seg}.nii.gz -vert 2:3 -vertfile PAM50_leve
  
 # MTS
 # ------------------------------------------------------------------------------
-file_t1ax="${SUBJECT}_acq-T1w_bp-cspine_MTS"
-file_mton="${SUBJECT}_acq-MTon_bp-cspine_MTS"
-file_mtoff="${SUBJECT}_acq-MToff_bp-cspine_MTS"
+file_t1ax="${SUBJECT}_bp-cspine_flip-2_mt-off_MTS"
+file_mton="${SUBJECT}_bp-cspine_flip-1_mt-on_MTS"
+file_mtoff="${SUBJECT}_bp-cspine_flip-1_mt-off_MTS"
 
 # Segment spinal cord (only if it does not exist)
 segment_if_does_not_exist $file_t1ax "t1"
@@ -207,9 +207,9 @@ file_mtoff="${file_mtoff}_reg"
 sct_register_multimodal -i ${file_mton}.nii.gz -d ${file_t1ax}.nii.gz -dseg ${file_t1ax_seg}.nii.gz -param step=1,type=im,algo=rigid,slicewise=1,metric=CC -x spline -qc ${PATH_QC} -qc-subject ${SUBJECT}
 file_mton="${file_mton}_reg"
 # Copy json files to match file basename (it will later be used by sct_compute_mtsat)
-cp ${SUBJECT}_acq-T1w_bp-cspine_MTS.json ${file_t1ax}.json
-cp ${SUBJECT}_acq-MToff_bp-cspine_MTS.json ${file_mtoff}.json
-cp ${SUBJECT}_acq-MTon_bp-cspine_MTS.json ${file_mton}.json
+cp ${SUBJECT}_bp-cspine_flip-2_mt-off_MTS.json ${file_t1ax}.json
+cp ${SUBJECT}_bp-cspine_flip-1_mt-off_MTS.json ${file_mtoff}.json
+cp ${SUBJECT}_bp-cspine_flip-1_mt-on_MTS.json ${file_mton}.json
 # Register template->T1w_ax (using template-T1w as initial transformation)
 sct_register_multimodal -i $SCT_DIR/data/PAM50/template/PAM50_t1.nii.gz -iseg $SCT_DIR/data/PAM50/template/PAM50_cord.nii.gz -d ${file_t1ax}.nii.gz -dseg ${file_t1ax_seg}.nii.gz -param step=1,type=seg,algo=slicereg,metric=MeanSquares,smooth=2:step=2,type=im,algo=syn,metric=CC,iter=5,gradStep=0.5 -initwarp warp_template2T2w.nii.gz -initwarpinv warp_T2w2template.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}
 # Rename warping field for clarity
@@ -229,7 +229,7 @@ sct_extract_metric -i t1map.nii.gz -f label_MTS/atlas -l 51 -vert 2:5 -vertfile 
 # T2s
 # ------------------------------------------------------------------------------
 # TODO: When https://github.com/courtois-neuromod/anat/issues/10 is fixed, we should replace _T2starmap by _T2starw
-file_t2s="${SUBJECT}_bp-cspine_T2starmap"
+file_t2s="${SUBJECT}_bp-cspine_T2starw"
 # Bring vertebral level into T2s space
 sct_register_multimodal -i label_T2w/template/PAM50_levels.nii.gz -d ${file_t2s}.nii.gz -o PAM50_levels2${file_t2s}.nii.gz -identity 1 -x nn
 # Segment gray matter (only if it does not exist)
