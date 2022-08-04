@@ -120,7 +120,7 @@ if(params.bids){
     log.info "Nextflow Work Dir: $workflow.workDir"
 
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_flip-{1,2}_mt-{off,on}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -129,7 +129,7 @@ if(params.bids){
         .set {niiMTS}
     
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_flip-{1,2}_mt-{off,on}_MTS.json", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -152,7 +152,7 @@ if(params.bids){
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
     Channel
-           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
+           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-famp_TB1TFL.nii.gz", maxDepth:3, size:1, flat:true)
            .multiMap { it -> AngleMap: it }
            .set {B1}
 
