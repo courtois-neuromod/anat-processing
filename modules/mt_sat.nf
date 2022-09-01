@@ -66,21 +66,16 @@ process fitMtsatWithBet {
 
     output:
         tuple val(sid), \
-        path("${sid}_T1map.nii.gz"), \
-        path("${sid}_MTsat.nii.gz"), \
-        path("${sid}_T1map.json"), \
-        path("${sid}_MTsat.json"), \
+        path("${sid}_acq-MTS_T1map.nii.gz"), \
+        path("${sid}_acq-MTS_MTsat.nii.gz"), \
+        path("${sid}_acq-MTS_T1map.json"), \
+        path("${sid}_acq-MTS_MTsat.json"), \
         path("${sid}_mt_sat.qmrlab.mat"), \
         emit: publish_mtsat
 
     script: 
         """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
-
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','mask','$mask','qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
+            $params.runcmd "mt_sat_neuromod('${sid}','$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj', 'mask', '$mask'); exit();"
         """
 }
 
@@ -97,20 +92,16 @@ process fitMtsat {
 
     output:
         tuple val(sid), \
-        path("${sid}_T1map.nii.gz"), \
-        path("${sid}_MTsat.nii.gz"), \
-        path("${sid}_T1map.json"), \
-        path("${sid}_MTsat.json"), \
+        path("${sid}_acq-MTS_T1map.nii.gz"), \
+        path("${sid}_acq-MTS_MTsat.nii.gz"), \
+        path("${sid}_acq-MTS_T1map.json"), \
+        path("${sid}_acq-MTS_MTsat.json"), \
         path("${sid}_mt_sat.qmrlab.mat"), \
         emit: publish_mtsat
 
     script: 
         """
-            git clone $params.wrapper_repo 
-            cd qMRWrappers
-            sh init_qmrlab_wrapper.sh $params.wrapper_version 
-            cd ..
+            $params.runcmd "mt_sat_neuromod('${sid}','$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj'); exit();"
 
-            $params.runcmd "addpath(genpath('qMRWrappers')); mt_sat_wrapper('$mtw_reg','$pdw_reg','$t1w','$mtwj','$pdwj','$t1wj','qmrlab_path','$params.qmrlab_path', 'sid','${sid}'); exit();"
         """
 }
