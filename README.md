@@ -3,6 +3,10 @@ Pipeline to process anatomical data, including microstructure metrics from DWI a
 
 ## Download the data
 
+Instructions: https://docs.cneuromod.ca/en/latest/ACCESS.html#downloading-the-dataset
+
+Repository: https://github.com/courtois-neuromod/cneuromod
+
 ### Get `s3_access_key` and `s3_secret_key` 👉 contact Basile.
 Then, set them:
 ```bash
