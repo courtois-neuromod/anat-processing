@@ -120,7 +120,7 @@ if(params.bids){
     log.info "Nextflow Work Dir: $workflow.workDir"
 
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_flip-{1,2}_mt-{off,on}_MTS.nii.gz", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -129,7 +129,7 @@ if(params.bids){
         .set {niiMTS}
     
     Channel
-        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_acq-{MToff,MTon,T1w}_MTS.json", maxDepth: 3, size: 3, flat: true)
+        .fromFilePairs("$bids/${entity.dirInputLevel}sub-*_flip-{1,2}_mt-{off,on}_MTS.json", maxDepth: 3, size: 3, flat: true)
         .multiMap {sid, MToff, MTon, T1w ->
         PDw: tuple(sid, MToff)
         MTw: tuple(sid, MTon)
@@ -152,7 +152,7 @@ if(params.bids){
     /* ==== BIDS: B1 map ==== */             
     /* Look for B1map in fmap folder */
     Channel
-           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-flipangle_dir-AP_B1plusmap.nii.gz", maxDepth:3, size:1, flat:true)
+           .fromFilePairs("$bids/**/**/fmap/sub-*_acq-famp_TB1TFL.nii.gz", maxDepth:3, size:1, flat:true)
            .multiMap { it -> AngleMap: it }
            .set {B1}
 
@@ -353,18 +353,12 @@ resampleB1(b1_for_alignment)
 // Collect output
 b1_resampled = resampleB1.out.b1_resampled
 
-// Create empty channel as b1_resampled output is optional.
-if (!params.use_b1cor){
-    Channel
-        .empty()
-        .set{b1_resampled}
-}
-
-
 // Join channels for smoothing with map
 b1_resampled
     .join(Mask)
     .set {b1_for_smoothing_with_mask}
+
+if (params.use_bet){
 
 // EXECUTE PROCESS (tuple order: sid, b1, mask)
 smoothB1WithMask(b1_for_smoothing_with_mask)
@@ -376,6 +370,8 @@ b1_filtered = smoothB1WithMask.out.b1_filtered
                         Nii: tuple(it[0],it[1])
                         }
 
+}else{
+
 // EXECUTE PROCESS (tuple order: sid, b1)
 smoothB1WithoutMask(b1_resampled)
 
@@ -385,10 +381,11 @@ b1_filtered = smoothB1WithoutMask.out.b1_filtered
                         Publish: it
                         Nii: tuple(it[0],it[1])
                         }
+}
 
 // Join data channels based on parameter selection
 // Fit with B1 
-if (params.use_bet){
+if (params.use_b1cor){
 
 Aligned.Fit
     .join(T1w.Nii)
@@ -397,18 +394,16 @@ Aligned.Fit
     .join(T1w.Json)
     .join(b1_filtered.Nii)
     .set{fitting_with_b1}
+
+fitting_with_b1
+    .join(Mask)
+    .set{mtsat_with_b1_bet}
+
+fitMtsatWithB1Mask(mtsat_with_b1_bet)
+
+fitMtsatWithB1(fitting_with_b1)
 
 }else{
-
-Aligned.Fit
-    .join(T1w.Nii)
-    .join(PDw.Json)
-    .join(MTw.Json)
-    .join(T1w.Json)
-    .join(b1_filtered.Nii)
-    .set{fitting_with_b1}
-}
-
 
 // Fit without B1 map channel 
 Aligned.Fit
@@ -422,35 +417,56 @@ mtsat_fitting_without_b1
     .join(Mask)
     .set{ fitting_without_b1_bet}
 
-fitting_with_b1
-    .join(Mask)
-    .set{mtsat_with_b1_bet}
-
-fitMtsatWithB1Mask(mtsat_with_b1_bet)
-
-fitMtsatWithB1(fitting_with_b1)
-
-fitMtsatWithBet(fitting_with_b1)
+fitMtsatWithBet(fitting_without_b1_bet)
 
 fitMtsat(mtsat_fitting_without_b1)
+
+}
 
 // Fit MTR
 fitMtratio(Aligned.Mtr)
 
+if (params.use_bet&params.use_b1cor){
+Aligned.Publish
+    .join(fitMtsatWithB1Mask.out.publish_mtsat)
+    .join(publish_mp2rage)
+    .join(fitMtratio.out.mtratio_output)
+    .set {publish}
+}
+if (!params.use_bet&params.use_b1cor){
 Aligned.Publish
     .join(fitMtsatWithB1.out.publish_mtsat)
     .join(publish_mp2rage)
     .join(fitMtratio.out.mtratio_output)
     .set {publish}
+    }
+if (params.use_bet&!params.use_b1cor){
+Aligned.Publish
+    .join(fitMtsatWithBet.out.publish_mtsat)
+    .join(publish_mp2rage)
+    .join(fitMtratio.out.mtratio_output)
+    .set {publish}
+}
+if (!params.use_bet&!params.use_b1cor){
+Aligned.Publish
+    .join(fitMtsat.out.publish_mtsat)
+    .join(publish_mp2rage)
+    .join(fitMtratio.out.mtratio_output)
+    .set {publish}
+}
 
+if (params.use_b1cor){
 b1_resampled
    .join(b1_filtered.Nii)
    .set{publishfmap}
+}
 
 generateRegionMasks(segInputs)
 
 publishOutputs(publish)
+if (params.use_b1cor){
 publishOutputsFmap(publishfmap)
+}
 publishOutputsMasks(generateRegionMasks.out.region_masks)
 
 }
