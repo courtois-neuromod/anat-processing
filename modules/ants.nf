@@ -87,7 +87,7 @@ process generateRegionMasks {
 
     script:
         """       
-        fsl_anat -i $t1highres -o ./seg --noreorient
+        fsl_anat -i $t1highres -o ./seg --noreorient --noreg --nononlinreg 
 
         antsRegistration -d $params.ants_dim \
                     --float 0 \
