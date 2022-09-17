@@ -83,32 +83,35 @@ process generateRegionMasks {
         path("${sid}_label-WM_MTS.nii.gz"), \
         path("${sid}_label-GM_MP2RAGE.nii.gz"), \
         path("${sid}_label-WM_MP2RAGE.nii.gz"), \
+        path("${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat"),\
+        path("${sid}_t1whighres_to_mp2rage_displacement.mat0GenericAffine.mat"),\
         emit: region_masks
 
     script:
-        """
+        """       
+        fsl_anat -i $t1highres -o ./seg --noreorient --noreg --nononlinreg --nosubcortseg
+                
         antsRegistration -d $params.ants_dim \
                     --float 0 \
                     -o [${sid}_t1whighres_to_mts_displacement.mat,${sid}_t1whighres_to_mts_aligned.nii.gz] \
                     --transform $params.ants_transform \
-                    --metric $params.ants_metric[$t1mts,$t1highres,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
+                    --metric $params.ants_metric[$t1mts,./seg.anat/T1.nii.gz,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
                     --convergence $params.ants_convergence \
                     --shrink-factors $params.ants_shrink \
                     --smoothing-sigmas $params.ants_smoothing
-        
+
+        antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_1.nii.gz -r $t1mts -o ${sid}_label-GM_MTS.nii.gz -t ${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat
+        antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_2.nii.gz -r $t1mts -o ${sid}_label-WM_MTS.nii.gz -t ${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat
+
         antsRegistration -d $params.ants_dim \
             --float 0 \
             -o [${sid}_t1whighres_to_mp2rage_displacement.mat,${sid}_t1whighres_to_mp2rage_aligned.nii.gz] \
             --transform $params.ants_transform \
-            --metric $params.ants_metric[$t1mp2rage,$t1highres,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
+            --metric $params.ants_metric[$t1mp2rage,./seg.anat/T1.nii.gz,$params.ants_metric_weight, $params.ants_metric_bins,$params.ants_metric_sampling,$params.ants_metric_samplingprct] \
             --convergence $params.ants_convergence \
             --shrink-factors $params.ants_shrink \
             --smoothing-sigmas $params.ants_smoothing
-        
-        fsl_anat -i $t1highres -o ./seg --noreorient --clobber --nocrop --noreg --nononlinreg --nosubcortseg --nocleanup --nobias
 
-        antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_1.nii.gz -r $t1mts -o ${sid}_label-GM_MTS.nii.gz -t ${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat
-        antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_2.nii.gz -r $t1mts -o ${sid}_label-WM_MTS.nii.gz -t ${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat
         antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_1.nii.gz -r $t1mp2rage -o ${sid}_label-GM_MP2RAGE.nii.gz -t ${sid}_t1whighres_to_mp2rage_displacement.mat0GenericAffine.mat
         antsApplyTransforms -d 3 -e 0 -i ./seg.anat/T1_fast_pve_2.nii.gz -r $t1mp2rage -o ${sid}_label-WM_MP2RAGE.nii.gz -t ${sid}_t1whighres_to_mp2rage_displacement.mat0GenericAffine.mat
         """
