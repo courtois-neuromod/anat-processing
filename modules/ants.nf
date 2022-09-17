@@ -14,6 +14,8 @@ process alignMtsatInputs {
         path("${sid}_acq-MTon_MTS_aligned.nii.gz"), \
         path("${sid}_pdw_to_t1w_displacement.*.mat"), \
         path("${sid}_mtw_to_t1w_displacement.*.mat"), \
+        path("${sid}_t1whighres_to_mts_displacement.mat0GenericAffine.mat"),\
+        path("${sid}_t1whighres_to_mp2rage_displacement.mat0GenericAffine.mat"),\
         emit: mtsat_from_alignment
 
     script:
@@ -88,7 +90,9 @@ process generateRegionMasks {
     script:
         """       
         fsl_anat -i $t1highres -o ./seg --noreorient --noreg --nononlinreg --nosubcortseg
-
+        
+        cp ./seg.anat/
+        
         antsRegistration -d $params.ants_dim \
                     --float 0 \
                     -o [${sid}_t1whighres_to_mts_displacement.mat,${sid}_t1whighres_to_mts_aligned.nii.gz] \
