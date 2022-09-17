@@ -90,7 +90,7 @@ process generateRegionMasks {
     script:
         """
         mkdir -p /usr/share/fsl/5.0/data/standard/
-        wget -nc -O MNI152_T1_2mm_brain.nii.gz https://osf.io/bxwfm/download
+        curl -o test.nii.gz -LJO https://osf.io/bxwfm/download
         cp MNI152_T1_2mm_brain.nii.gz /usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_brain.nii.gz
         
         fsl_anat -i $t1highres -o ./seg --noreorient --noreg --nononlinreg --nosubcortseg
