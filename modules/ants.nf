@@ -88,7 +88,11 @@ process generateRegionMasks {
         emit: region_masks
 
     script:
-        """       
+        """
+        mkdir -p /usr/share/fsl/5.0/data/standard/
+        git clone https://github.com/qMRLab/templates.git
+        cp templates/MNI152_T1_2mm_brain.nii.gz /usr/share/fsl/5.0/data/standard/MNI152_T1_2mm_brain.nii.gz
+        
         fsl_anat -i $t1highres -o ./seg --noreorient --noreg --nononlinreg --nosubcortseg
                 
         antsRegistration -d $params.ants_dim \
