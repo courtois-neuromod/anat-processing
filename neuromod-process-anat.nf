@@ -291,7 +291,7 @@ process publishOutputsMasks {
     output:
       tuple val(sid), \
       path(mtsgm), path(mtswm), \
-      path(mp2ragegm), path(mp2ragewm) \
+      path(mp2ragegm), path(mp2ragewm), \
       path(mts_disp), path(mp2rage_disp)
 
     script:
