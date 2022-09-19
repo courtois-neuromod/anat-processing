@@ -84,7 +84,7 @@ process generateRegionMasks {
         path("${sid}_label-GM_MP2RAGE.nii.gz"), \
         path("${sid}_label-WM_MP2RAGE.nii.gz"), \
         path("${sid}_t1whighres_to_mts_displacement.*.mat"), \
-        path("${sid}_t1whighres_to_mp2rage_displacementt.*.mat"), \
+        path("${sid}_t1whighres_to_mp2rage_displacement.*.mat"), \
         emit: region_masks
 
     script:
