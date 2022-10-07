@@ -118,7 +118,7 @@ this command will show you the list of files that'll be deleted if you run
 nextflow clean mnemonic_name -f
 ```
 
-Note that if you delete these files and would like to [resume nextflow after an interrupted run](https://www.nextflow.io/blog/2019/demystifying-nextflow-resume.html) you won't be able to
+Note that if you delete these files and would like to [resume nextflow after an interrupted run](https://www.nextflow.io/blog/2019/demystifying-nextflow-resume.html) you won't be able to 
 recover the processed files. 
 
 ### Datalad 
@@ -159,14 +159,14 @@ you can set `maxForks` property. For example:
 By default `maxForks` value is equal to the number of CPU cores available minus 1. 
 
 The local executor is used by default. It runs the pipeline processes in the computer where Nextflow is launched. The processes are 
-parallelised by spawning multiple threads and by taking advantage of multi-cores architecture provided by the CPU. 
+parallelised by spawning multiple threads and by taking advantage of multi-cores architecture provided by the CPU.
 
 Resources allocated to running containers are governed by your [Docker settings](https://docs.docker.com/config/containers/resource_constraints/). For example, if you need 500MB memory for a process, but if you set Docker memory access limit to 200MB, the process will run 
 out of memory and fail to proceed. Note that this allocation affects performance as well.
 
 You can use [any of these available executors](https://www.nextflow.io/docs/latest/executor.html).
 
-### Notes
+### Notes 
 
 - By default, this workflow is configured to work with multiple containers. However, you can edit `nextflow.config` for a select 
 process to run locally. In that case, you need to make sure that all the dependencies are met for that process.
