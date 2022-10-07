@@ -175,6 +175,10 @@ process to run locally. In that case, you need to make sure that all the depende
 if you set `use_b1cor=true` the whole process will be skipped for a `subject/session` missing `../fmap/...B1plusmap.nii.gz`. This ensures that 
 all the derivatives are processed uniformly.
 
+## Run the diffusion MRI analysis pipeline
+
+@Arnaud
+
 ## Run spinal cord analysis pipeline
 
 ```
