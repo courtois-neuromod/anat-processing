@@ -189,7 +189,7 @@ nextflow tractoflow -r 2.4.0 --bids anat/ --fs /data/neuromod/DATA/cneuromod.pro
 ```
 tree_for_rbx_flow.sh -t o_tractoflow o i_rbx_flow
 
-nextflow rbx_flow -r  --input i_rbx_flow --atlas_config atlas_rbx/default_config.json --atlas_anat atlas_rbx/mni_masked.nii.gz --atlas_directory atlas_rbx/atlas --atlas_centroids atlas_rbx/centroids -with-docker scilus/scilus:1.4.0 -resume
+nextflow rbx_flow -r 1.1.0 --input i_rbx_flow --atlas_config atlas_rbx/default_config.json --atlas_anat atlas_rbx/mni_masked.nii.gz --atlas_directory atlas_rbx/atlas --atlas_centroids atlas_rbx/centroids -with-docker scilus/scilus:1.3.0 -resume
 ```
 
 ### Tractometry_flow
