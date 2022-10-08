@@ -181,7 +181,29 @@ all the derivatives are processed uniformly.
 
 ## Run brain diffusion MRI analysis pipeline
 
-@Arnaud
+Github used to combine flows: https://github.com/scilus/combine_flows
+
+### Tractoflow
+```
+nextflow tractoflow -r 2.4.0 --bids anat/ --fs /data/neuromod/DATA/cneuromod.processed/smriprep/sourcedata/freesurfer/ --max_dti_shell_value 1550 -profile use_cuda,ABS -with-docker scilus/scilus:1.4.0 -resume --run_gibbs_correction True
+```
+
+### RBXflow
+
+```
+tree_for_rbx_flow.sh -t o_tractoflow o i_rbx_flow
+
+nextflow rbx_flow -r 1.1.0 --input i_rbx_flow --atlas_config atlas_rbx/default_config.json --atlas_anat atlas_rbx/mni_masked.nii.gz --atlas_directory atlas_rbx/atlas --atlas_centroids atlas_rbx/centroids -with-docker scilus/scilus:1.3.0 -resume
+```
+
+### Tractometry_flow
+
+```
+tree_for_tractometry.sh -r o_rbx_flow/results_RBX/ -t o_tractoflow/results/ -o i_tractometry_flow
+
+nextflow tractometry_flow -r 1.0.0 --input i_tractometry_flow/ --process 40 -with-docker scilus/scilus:1.3.0 -resume
+```
+
 
 ## Run spinal cord analysis pipeline
 
